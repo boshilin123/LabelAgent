@@ -1,0 +1,32 @@
+.email-verify-banner {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 14px;
+  background: var(--vscode-list-hoverBackground, rgba(255, 255, 255, 0.06));
+  border-bottom: 1px solid var(--vscode-panel-border, #3e3e42);
+  color: var(--vscode-foreground, #cccccc);
+  font-size: var(--lr-ui-font-small);
+}
+
+.email-verify-banner-btn {
+  flex-shrink: 0;
+  padding: 4px 12px;
+  border: 1px solid var(--vscode-panel-border, #3e3e42);
+  border-radius: 4px;
+  background: var(--vscode-list-hoverBackground, rgba(255, 255, 255, 0.06));
+  color: var(--vscode-foreground, #cccccc);
+  font-size: var(--lr-ui-font-caption);
+  cursor: pointer;
+}
+
+.email-verify-banner-btn:hover:not(:disabled) {
+  background: var(--vscode-list-activeSelectionBackground, rgba(255, 255, 255, 0.08));
+}
+
+.email-verify-banner-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

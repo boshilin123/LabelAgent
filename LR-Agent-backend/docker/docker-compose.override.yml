@@ -1,0 +1,7 @@
+services:
+  minio:
+    image: quay.io/minio/minio:latest
+  api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.local

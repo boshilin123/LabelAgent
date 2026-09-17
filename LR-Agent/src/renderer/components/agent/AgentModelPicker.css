@@ -1,0 +1,133 @@
+.agent-model-picker {
+  position: relative;
+  min-width: 0;
+}
+
+.agent-model-picker-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  padding: 4px 8px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+  font-size: var(--agent-font-small);
+  line-height: 1.2;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.agent-model-picker-trigger:hover:not(:disabled) {
+  background: rgba(128, 128, 128, 0.16);
+  color: var(--vscode-foreground, #cccccc);
+}
+
+.agent-model-picker--inline .agent-model-picker-trigger {
+  padding: 5px 8px;
+  color: var(--vscode-foreground, #e8e8e8);
+  font-size: var(--agent-font-small);
+  font-weight: 500;
+}
+
+.agent-model-picker--inline .agent-model-picker-trigger:hover:not(:disabled) {
+  background: rgba(128, 128, 128, 0.14);
+}
+
+.agent-model-picker-trigger:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.agent-model-picker-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-model-picker-chevron {
+  font-size: var(--agent-font-small);
+  opacity: 0.8;
+  flex-shrink: 0;
+  transition: transform 0.15s ease;
+}
+
+.agent-model-picker-trigger[aria-expanded='true'] .agent-model-picker-chevron {
+  transform: rotate(180deg);
+}
+
+.agent-model-picker-menu {
+  min-width: 220px;
+  max-width: min(320px, calc(100vw - 16px));
+  /* 原 padding: 4px 下移到 .agent-model-picker-menu-list，
+     否则滑块离右边缘会多出 4px，与历史会话弹层不一致 */
+  padding: 0;
+  border-radius: 8px;
+  border: 1px solid var(--vscode-widget-border, #454545);
+  background: var(--vscode-dropdown-background, #3c3c3c);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  /* 替代原先的 overflow-y: auto（滚动交给 OverlayVerticalScrollArea），仅负责圆角裁剪 */
+  overflow: hidden;
+
+  /* 菜单被 portal 到 body，拿不到 .agent-panel-root 上的这套变量，需在此重复声明 */
+  --agent-overlay-scrollbar-size: 6px;
+  --agent-overlay-scrollbar-inset: 3px;
+  --agent-overlay-scrollbar-thumb: rgba(255, 255, 255, 0.22);
+  --agent-overlay-scrollbar-thumb-hover: rgba(255, 255, 255, 0.36);
+  --agent-font-small: var(--lr-ui-font-small);
+  --agent-font-meta: var(--lr-ui-font-meta);
+}
+
+[data-theme='light'] .agent-model-picker-menu {
+  --agent-overlay-scrollbar-thumb: rgba(0, 0, 0, 0.18);
+  --agent-overlay-scrollbar-thumb-hover: rgba(0, 0, 0, 0.3);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+}
+
+.agent-model-picker-menu-list {
+  padding: 4px;
+}
+
+.agent-model-picker-menu--portal {
+  position: fixed;
+  z-index: 1200;
+}
+
+.agent-model-picker-menu--open-up {
+  transform-origin: bottom left;
+}
+
+.agent-model-picker-option {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--vscode-foreground, #cccccc);
+  text-align: left;
+  cursor: pointer;
+}
+
+.agent-model-picker-option:hover,
+.agent-model-picker-option--active {
+  background: var(--vscode-list-hoverBackground, rgba(128, 128, 128, 0.2));
+}
+
+.agent-model-picker-option-name {
+  font-size: var(--agent-font-small);
+  font-weight: 500;
+  word-break: break-word;
+}
+
+.agent-model-picker-option-model {
+  font-size: var(--agent-font-meta);
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+  word-break: break-all;
+}

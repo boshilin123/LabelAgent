@@ -1,0 +1,44 @@
+.layout-controls {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 4px;
+  height: var(--lr-titlebar-height, 40px);
+  -webkit-app-region: no-drag;
+}
+
+.layout-controls-left {
+  padding: 0 4px 0 2px;
+  margin-left: 4px;
+}
+
+.layout-controls-right {
+  padding: 0 6px;
+}
+
+.layout-control-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 30px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--vscode-icon-foreground, #cccccc);
+  cursor: default;
+}
+
+.layout-control-btn .codicon {
+  font-size: var(--lr-titlebar-icon-size, 18px);
+}
+
+.layout-control-btn:hover {
+  background: var(--vscode-toolbar-hoverBackground, rgba(90, 93, 94, 0.31));
+}
+
+.layout-control-btn:active,
+.layout-control-btn[aria-pressed='true'] {
+  background: var(--vscode-toolbar-activeBackground, rgba(99, 102, 103, 0.31));
+}

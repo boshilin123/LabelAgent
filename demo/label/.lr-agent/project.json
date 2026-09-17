@@ -1,0 +1,18 @@
+{
+  "id": "c1afb015-ee87-4349-9a8a-5cd5d2bf1bbf",
+  "name": "label",
+  "directoryPath": "D:\\Study\\LR-Agent\\demo\\label",
+  "modality": "image",
+  "annotationType": "bbox",
+  "labels": [
+    {
+      "id": "a34cb8cd-04a6-42ac-9322-d661d9d9d628",
+      "name": "label",
+      "color": "#38f567"
+    }
+  ],
+  "workspaceMemoryEnabled": true,
+  "createdAt": "2026-09-17T07:58:53.081Z",
+  "updatedAt": "2026-09-17T08:11:22.977Z",
+  "lastOpenedAt": "2026-09-17T08:11:22.977Z"
+}

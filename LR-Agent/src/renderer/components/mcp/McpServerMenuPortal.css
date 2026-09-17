@@ -1,0 +1,55 @@
+.mcp-server-menu-portal {
+  position: fixed;
+  z-index: 1200;
+  min-width: 140px;
+  margin: 0;
+  transform-origin: top right;
+}
+
+.mcp-server-menu-portal.mcp-server-menu-open-up {
+  transform-origin: bottom right;
+}
+
+.mcp-server-menu-portal[style*='visibility: hidden'] {
+  pointer-events: none;
+}
+
+.mcp-server-menu {
+  min-width: 140px;
+  padding: 4px 0;
+  border: 1px solid var(--vscode-widget-border, #454545);
+  border-radius: 4px;
+  background: var(--vscode-menu-background, #252526);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+.mcp-server-menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 12px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  font-size: var(--lr-ui-font-caption);
+  color: var(--vscode-menu-foreground, #cccccc);
+  cursor: pointer;
+}
+
+.mcp-server-menu button:hover:not(:disabled) {
+  background: var(--vscode-list-hoverBackground, rgba(90, 93, 94, 0.31));
+}
+
+.mcp-server-menu button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.mcp-server-menu button.danger {
+  color: var(--vscode-errorForeground);
+}
+
+.mcp-server-menu vscode-icon {
+  display: flex;
+}

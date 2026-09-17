@@ -1,0 +1,83 @@
+.pretrained-models-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  font-size: var(--vscode-font-size);
+}
+
+.pretrained-models-toolbar {
+  flex-shrink: 0;
+  padding: 4px 6px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.pretrained-models-toolbar vscode-toolbar-button:focus:not(:focus-visible) {
+  --vscode-focusBorder: transparent;
+}
+
+.pretrained-models-filter {
+  display: flex;
+  gap: 6px;
+  padding: 4px 10px 8px;
+  flex-shrink: 0;
+}
+
+.pretrained-models-filter-btn {
+  padding: 4px 10px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+  font-size: var(--lr-ui-font-caption);
+  cursor: pointer;
+}
+
+.pretrained-models-filter-btn:hover {
+  color: var(--vscode-foreground, #cccccc);
+  background: var(--vscode-toolbar-hoverBackground, rgba(90, 93, 94, 0.31));
+}
+
+.pretrained-models-filter-btn--active {
+  color: var(--vscode-foreground, #cccccc);
+  border-color: var(--vscode-panel-border, #3c3c3c);
+  background: var(--vscode-editor-background, #1e1e1e);
+}
+
+.pretrained-models-scroll-host {
+  flex: 1;
+  min-height: 0;
+}
+
+.pretrained-models-scrollable {
+  height: 100%;
+}
+
+.pretrained-model-delete-dialog {
+  width: min(420px, calc(100vw - 32px));
+  padding: 16px 18px;
+  border: 1px solid var(--vscode-panel-border, #3c3c3c);
+  border-radius: 6px;
+  background: var(--vscode-editor-background, #1e1e1e);
+  color: var(--vscode-foreground, #cccccc);
+}
+
+.pretrained-model-delete-dialog h3 {
+  margin: 0 0 10px;
+  font-size: var(--lr-ui-font-large);
+}
+
+.pretrained-model-delete-dialog p {
+  margin: 0 0 14px;
+  font-size: var(--lr-ui-font-small);
+  line-height: 1.5;
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+}
+
+.pretrained-model-delete-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}

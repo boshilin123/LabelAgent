@@ -1,0 +1,145 @@
+.llm-provider-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.llm-provider-list-empty {
+  padding: 16px 12px;
+  font-size: var(--lr-ui-font-meta);
+  line-height: 1.5;
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+}
+
+.llm-provider-item {
+  position: relative;
+  padding: 10px 36px 10px 12px;
+  border-bottom: 1px solid var(--vscode-panel-border, #3c3c3c);
+}
+
+.llm-provider-item-menu-open {
+  z-index: 2;
+}
+
+.llm-provider-item-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.llm-provider-item-name {
+  font-size: var(--lr-ui-font-small);
+  font-weight: 600;
+  color: var(--vscode-foreground, #cccccc);
+}
+
+.llm-provider-item-badges {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.llm-provider-badge {
+  /* inline-flex + line-height:1 让内容在胶囊内几何居中：
+     中文按 em 框居中、数字/大写字母按基线排列，混排时不显式居中会错位 */
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: var(--lr-ui-font-caption);
+  line-height: 1;
+}
+
+.llm-provider-badge-default {
+  background: rgba(78, 201, 176, 0.15);
+  color: #4ec9b0;
+}
+
+.llm-provider-badge-disabled {
+  background: rgba(128, 128, 128, 0.2);
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+}
+
+.llm-provider-badge-vision {
+  background: rgba(86, 156, 214, 0.18);
+  color: #569cd6;
+}
+
+.llm-provider-badge-text-only {
+  background: rgba(206, 145, 120, 0.15);
+  color: #ce9178;
+}
+
+.llm-provider-badge-context {
+  background: rgba(156, 220, 254, 0.15);
+  color: #9cdcfe;
+}
+
+.llm-provider-item-meta {
+  margin-top: 6px;
+  font-size: var(--lr-ui-font-caption);
+  line-height: 1.45;
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+  word-break: break-all;
+}
+
+.llm-provider-item-actions {
+  position: absolute;
+  top: 6px;
+  right: 4px;
+  z-index: 1;
+}
+
+.llm-provider-menu-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--vscode-foreground, #cccccc);
+  cursor: pointer;
+}
+
+.llm-provider-menu-trigger:hover {
+  background: var(--vscode-toolbar-hoverBackground, rgba(90, 93, 94, 0.31));
+}
+
+.llm-provider-menu {
+  min-width: 140px;
+  padding: 4px 0;
+  border: 1px solid var(--vscode-widget-border, #454545);
+  border-radius: 4px;
+  background: var(--vscode-menu-background, #252526);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+.llm-provider-menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 12px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  font-size: var(--lr-ui-font-caption);
+  color: var(--vscode-menu-foreground, #cccccc);
+  cursor: pointer;
+}
+
+.llm-provider-menu button:hover {
+  background: var(--vscode-list-hoverBackground, rgba(90, 93, 94, 0.31));
+}
+
+.llm-provider-menu button.danger {
+  color: var(--vscode-errorForeground);
+}
+
+.llm-provider-menu vscode-icon {
+  display: flex;
+}

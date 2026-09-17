@@ -1,0 +1,286 @@
+.annotation-right-root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--lr-agent-panel-background);
+  font-size: var(--vscode-font-size);
+}
+
+.annotation-right-scroll-host {
+  flex: 1;
+  min-height: 0;
+}
+
+.annotation-right-scrollable {
+  padding: 14px;
+}
+
+.annotation-right-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  color: var(--vscode-descriptionForeground, #858585);
+}
+
+.annotation-right-placeholder-hint {
+  margin: 0;
+  font-size: var(--lr-ui-font-meta);
+  line-height: 1.5;
+}
+
+.annotation-right-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  flex-shrink: 0;
+}
+
+.annotation-right-header-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.annotation-right-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.annotation-right-export-btn:focus:not(:focus-visible) {
+  --vscode-focusBorder: transparent;
+}
+
+.annotation-right-status {
+  font-size: var(--lr-ui-font-caption);
+  color: var(--vscode-descriptionForeground, #858585);
+}
+
+.annotation-right-warning {
+  font-size: var(--lr-ui-font-caption);
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(255, 193, 7, 0.15);
+  color: var(--vscode-editorWarning-foreground, #cca700);
+}
+
+.annotation-right-section {
+  padding: 10px 12px;
+  flex-shrink: 0;
+}
+
+.annotation-right-section--grow {
+  flex: 1;
+  flex-shrink: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding-bottom: 16px;
+}
+
+.annotation-right-heading {
+  margin: 0 0 8px;
+  font-size: var(--lr-ui-font-caption);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--vscode-sideBarSectionHeader-foreground, #bdbdbd);
+}
+
+.annotation-right-muted {
+  margin: 0;
+  font-size: var(--lr-ui-font-caption);
+  color: var(--vscode-descriptionForeground, #858585);
+  line-height: 1.5;
+}
+
+.annotation-right-error {
+  margin: 0;
+  font-size: var(--lr-ui-font-caption);
+  color: var(--vscode-errorForeground, #f48771);
+}
+
+.annotation-right-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.annotation-right-label-btn {
+  appearance: none;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  padding: 4px 10px;
+  font-size: var(--lr-ui-font-caption);
+  cursor: pointer;
+  opacity: 0.72;
+  transition:
+    opacity var(--annotation-motion-duration) var(--annotation-motion-ease),
+    filter var(--annotation-motion-duration) var(--annotation-motion-ease),
+    box-shadow var(--annotation-motion-duration) var(--annotation-motion-ease);
+}
+
+.annotation-right-label-btn:hover {
+  opacity: 0.92;
+  filter: brightness(1.06);
+}
+
+.annotation-right-label-btn--picked {
+  opacity: 1;
+  font-weight: 600;
+  filter: brightness(1.12);
+  box-shadow: inset 0 0 0 1px rgba(128, 128, 128, 0.45);
+}
+
+.annotation-right-list-host {
+  flex: 1;
+  min-height: 0;
+}
+
+.annotation-right-list-scroll {
+  max-height: 100%;
+}
+
+.annotation-right-items {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-bottom: 16px;
+}
+
+.annotation-right-item {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 6px 8px 6px 12px;
+  border-radius: 6px;
+  border: none;
+  background: var(--annotation-accent-bg, rgba(255, 255, 255, 0.03));
+  cursor: pointer;
+  transition:
+    background-color var(--annotation-motion-duration) var(--annotation-motion-ease);
+}
+
+.annotation-right-item:focus-visible {
+  outline: 1px solid var(--vscode-panel-border, #3e3e42);
+  outline-offset: 2px;
+}
+
+.annotation-right-item-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+}
+
+.annotation-right-item-label-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.annotation-right-item:hover:not(.annotation-right-item--active) {
+  background: var(--annotation-accent-bg-hover, rgba(255, 255, 255, 0.06));
+}
+
+.annotation-right-item--active {
+  background: var(
+    --annotation-accent-bg-active,
+    var(--vscode-list-hoverBackground, rgba(90, 93, 94, 0.31))
+  );
+}
+
+.annotation-right-item-main {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: var(--lr-ui-font-caption);
+}
+
+.annotation-right-index {
+  color: var(--vscode-descriptionForeground, #858585);
+  font-variant-numeric: tabular-nums;
+}
+
+.annotation-right-suffix {
+  color: var(--vscode-descriptionForeground, #858585);
+  font-size: var(--lr-ui-font-caption);
+  font-variant-numeric: tabular-nums;
+}
+
+.annotation-right-chip {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.annotation-right-unlabeled {
+  color: var(--vscode-descriptionForeground, #858585);
+}
+
+.annotation-right-unknown {
+  color: var(--vscode-errorForeground, #f48771);
+}
+
+.annotation-right-item-label-more-btn {
+  width: 24px;
+  height: 24px;
+}
+
+.annotation-right-item-label-more-btn .codicon {
+  font-size: 14px;
+}
+
+.annotation-right-delete {
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.annotation-right-caption-summary {
+  margin: 4px 0 0 0;
+  font-size: var(--lr-ui-font-caption);
+  color: var(--vscode-descriptionForeground, #858585);
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.annotation-right-text-entry-meta {
+  margin: 2px 0 0 0;
+  font-size: var(--lr-ui-font-caption);
+  color: var(--vscode-descriptionForeground, #858585);
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.annotation-right-text-entry-meta--chosen {
+  color: var(--vscode-charts-green, #89d185);
+}
+
+.annotation-right-text-entry-meta--rejected {
+  color: var(--vscode-charts-red, #f48771);
+}

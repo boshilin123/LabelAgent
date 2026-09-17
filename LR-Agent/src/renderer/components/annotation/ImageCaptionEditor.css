@@ -1,0 +1,323 @@
+.image-caption-editor {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* ── 图片预览 + 底部面板容器 ── */
+.image-caption-view {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--vscode-editor-background, #1e1e1e);
+}
+
+/* ── 图片预览：全宽，占满剩余空间 ── */
+.image-caption-preview {
+  flex: 1;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  overflow: auto;
+  padding: 16px;
+  min-height: 0;
+}
+
+.image-caption-preview-img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 4px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
+}
+
+/* ── 可拖拽水平分割线 ── */
+.image-caption-resizer {
+  flex-shrink: 0;
+  width: 100%;
+  height: 6px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: var(--vscode-panel-border, #3c3c3c);
+  cursor: row-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+  position: relative;
+  z-index: 2;
+}
+
+.image-caption-resizer:hover {
+  background: var(--vscode-focusBorder, #007fd4);
+}
+
+.image-caption-resizer-handle {
+  display: block;
+  width: 40px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--vscode-descriptionForeground, #858585);
+  opacity: 0.6;
+  transition: opacity 0.15s, width 0.15s;
+}
+
+.image-caption-resizer:hover .image-caption-resizer-handle {
+  opacity: 1;
+  width: 60px;
+}
+
+/* ── 底部面板 ── */
+.image-caption-drawer {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--vscode-panel-border, #3c3c3c);
+  background: var(--vscode-sideBar-background, #252526);
+  overflow: hidden;
+  transition: height 0.2s ease;
+}
+
+.image-caption-drawer--collapsed {
+  border-top: none;
+}
+
+/* 拖拽时关闭过渡，实现即时跟随 */
+body.is-resizing-row .image-caption-drawer {
+  transition: none;
+}
+
+/* ── Tab 栏 ── */
+.image-caption-tabs {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8px;
+  height: 36px;
+  border-bottom: 1px solid var(--vscode-panel-border, #3c3c3c);
+  background: var(--vscode-editorGroupHeader-tabsBackground, #252526);
+}
+
+.image-caption-tabs-left {
+  display: flex;
+  gap: 0;
+  height: 100%;
+}
+
+.image-caption-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 14px;
+  height: 100%;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--vscode-tab-inactiveForeground, #969696);
+  font-size: var(--lr-ui-font-caption);
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+
+.image-caption-tab:hover {
+  color: var(--vscode-tab-activeForeground, #ffffff);
+}
+
+.image-caption-tab--active {
+  color: var(--vscode-tab-activeForeground, #ffffff);
+  border-bottom-color: var(--vscode-tab-activeBorderTop, #0078d4);
+}
+
+.image-caption-tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--vscode-badge-background, #4d4d4d);
+  color: var(--vscode-badge-foreground, #ffffff);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.image-caption-collapse-btn {
+  flex-shrink: 0;
+}
+
+.image-caption-collapse-btn .codicon {
+  font-size: 14px;
+}
+
+/* ── Tab 内容区 ── */
+.image-caption-drawer-body {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+/* ── 输入 Tab ── */
+.image-caption-input-tab {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.image-caption-granularity-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.image-caption-label {
+  font-size: var(--lr-ui-font-caption);
+  color: var(--vscode-descriptionForeground, #cccccc);
+  white-space: nowrap;
+}
+
+.image-caption-granularity-group {
+  display: flex;
+  gap: 2px;
+  background: var(--vscode-input-background, #3c3c3c);
+  border-radius: 4px;
+  padding: 2px;
+}
+
+.image-caption-granularity-btn {
+  padding: 3px 12px;
+  border: none;
+  background: transparent;
+  color: var(--vscode-descriptionForeground, #cccccc);
+  font-size: var(--lr-ui-font-caption);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.image-caption-granularity-btn:hover {
+  background: var(--vscode-toolbar-hoverBackground, rgba(255, 255, 255, 0.08));
+}
+
+.image-caption-granularity-btn--active {
+  background: var(--vscode-button-background, #0078d4);
+  color: var(--vscode-button-foreground, #ffffff);
+}
+
+.image-caption-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  min-height: 60px;
+  padding: 8px 10px;
+  border: 1px solid var(--vscode-input-border, #555);
+  border-radius: 4px;
+  background: var(--vscode-input-background, #3c3c3c);
+  color: var(--vscode-input-foreground, #cccccc);
+  font-family: var(--vscode-font-family, monospace);
+  font-size: var(--lr-ui-font-caption);
+  line-height: 1.5;
+  transition: border-color 0.15s;
+}
+
+.image-caption-textarea:focus {
+  outline: none;
+  border-color: var(--vscode-focusBorder, #007fd4);
+}
+
+.image-caption-textarea--edit {
+  min-height: 60px;
+  font-size: var(--lr-ui-font-caption);
+}
+
+.image-caption-input-actions {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.image-caption-add-btn {
+  min-width: 100px;
+}
+
+/* ── 已有描述 Tab ── */
+.image-caption-history-tab {
+  padding: 8px 12px;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.image-caption-empty {
+  padding: 24px 0;
+  text-align: center;
+  color: var(--vscode-descriptionForeground, #858585);
+  font-size: var(--lr-ui-font-caption);
+}
+
+.image-caption-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.image-caption-item {
+  border: 1px solid var(--vscode-panel-border, #3c3c3c);
+  border-radius: 4px;
+  background: var(--vscode-editor-background, #1e1e1e);
+  overflow: hidden;
+}
+
+.image-caption-item-display {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+}
+
+.image-caption-item-granularity-tag {
+  flex-shrink: 0;
+  font-size: var(--lr-ui-font-caption);
+  padding: 1px 7px;
+  border-radius: 3px;
+  background: var(--vscode-badge-background, #4d4d4d);
+  color: var(--vscode-badge-foreground, #ffffff);
+  white-space: nowrap;
+}
+
+.image-caption-item-text {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--lr-ui-font-caption);
+  line-height: 1.4;
+  color: var(--vscode-foreground, #cccccc);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.image-caption-item-actions {
+  flex-shrink: 0;
+  display: flex;
+  gap: 4px;
+}
+
+/* ── 编辑表单 ── */
+.image-caption-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+}
+
+.image-caption-edit-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}

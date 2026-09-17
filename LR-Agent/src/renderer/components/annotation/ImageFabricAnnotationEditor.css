@@ -1,0 +1,79 @@
+.image-fabric-editor {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.image-fabric-canvas-scroll {
+  flex: 1;
+  min-height: 200px;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--vscode-scrollbarSlider-background) transparent;
+  background: var(--vscode-editor-background, #1e1e1e);
+  position: relative;
+}
+
+.image-fabric-canvas-scroll::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.image-fabric-canvas-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.image-fabric-canvas-scroll::-webkit-scrollbar-thumb {
+  background: var(--vscode-scrollbarSlider-background);
+  border-radius: 5px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.image-fabric-canvas-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--vscode-scrollbarSlider-hoverBackground);
+  background-clip: padding-box;
+}
+
+.image-fabric-canvas-scroll::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+.image-fabric-canvas-scroll--draw,
+.image-fabric-canvas-scroll--polygon {
+  cursor: crosshair;
+}
+
+.image-fabric-canvas-scroll--draw .upper-canvas,
+.image-fabric-canvas-scroll--draw .lower-canvas,
+.image-fabric-canvas-scroll--polygon .upper-canvas,
+.image-fabric-canvas-scroll--polygon .lower-canvas {
+  cursor: crosshair !important;
+}
+
+.image-fabric-canvas-scroll--select {
+  cursor: default;
+}
+
+.image-fabric-canvas-inner {
+  display: inline-block;
+  line-height: 0;
+  vertical-align: top;
+}
+
+.image-fabric-canvas-inner canvas {
+  display: block;
+}
+
+.image-fabric-load-error {
+  flex-shrink: 0;
+  padding: 6px 12px;
+  font-size: var(--lr-ui-font-caption);
+  color: var(--vscode-inputValidation-errorForeground, #f48771);
+  background: var(--vscode-inputValidation-errorBackground, #5a1d1d);
+  border-bottom: 1px solid var(--vscode-inputValidation-errorBorder, #be1100);
+}

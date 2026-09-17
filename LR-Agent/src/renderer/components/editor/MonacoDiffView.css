@@ -1,0 +1,36 @@
+.monaco-diff-view {
+  position: relative;
+  width: 100%;
+}
+
+.monaco-diff-view__container {
+  position: absolute;
+  inset: 0;
+}
+
+/* glyph margin 已设为零宽（glyphMargin: false），相关小图标不会渲染；
+   这里兜底隐藏以防万一 */
+.monaco-diff-view .glyph-margin,
+.monaco-diff-view .glyph-margin-widgets {
+  display: none !important;
+}
+
+/* 内联模式不隐藏原文编辑器，只是把它压成左侧窄条（宽度=其行号装饰区），
+   会露出第二列原文行号且与换行内容错位——压为零宽并隐藏 */
+.monaco-diff-view .editor.original {
+  width: 0 !important;
+  visibility: hidden;
+}
+
+/* 内联 diff 删除块 margin 上的 lightbulb（悬停"复制被删代码"入口，
+   inlineDiffDeletedCodeMargin）在行号关闭后的小 margin 里右对齐溢出，
+   左半被裁——卡片与预览都不需要，隐藏 */
+.monaco-diff-view .lightbulb-glyph {
+  display: none !important;
+}
+
+.monaco-diff-view--fill {
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+}

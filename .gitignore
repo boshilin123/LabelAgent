@@ -1,0 +1,31 @@
+# 本机虚拟环境与运行缓存：只保留目录占位文件
+.venvs/*
+!.venvs/.gitkeep
+
+# 密钥和本机配置
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.prod.example
+
+# 依赖、构建产物与缓存
+**/node_modules/
+**/__pycache__/
+**/.pytest_cache/
+**/.cache/
+**/dist/
+**/build/
+**/*.py[cod]
+**/*.log
+
+# 编辑器与操作系统文件
+**/.vscode/
+**/.idea/
+**/.cursor/
+**/.DS_Store
+**/Thumbs.db
+**/Desktop.ini
+
+# 本机诊断输出
+**/diag_output/
+

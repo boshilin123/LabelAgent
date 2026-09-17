@@ -1,0 +1,123 @@
+@import './AgentChangeBlock.shared.css';
+
+.agent-files-changed {
+  margin-top: 8px;
+  border: var(--agent-change-block-border);
+  border-radius: var(--agent-change-block-radius);
+  background: var(--agent-change-block-bg);
+  overflow: hidden;
+  font-size: var(--agent-font-small);
+}
+
+.agent-files-changed__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px 6px;
+  color: var(--agent-surface-muted-text);
+  font-weight: 500;
+}
+
+.agent-files-changed__title {
+  user-select: none;
+}
+
+.agent-files-changed__review {
+  flex-shrink: 0;
+  padding: 0 4px;
+  border: none;
+  background: transparent;
+  color: var(--agent-surface-muted-text);
+  font-size: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.agent-files-changed__review:hover {
+  color: var(--vscode-foreground, #cccccc);
+}
+
+.agent-files-changed__list {
+  display: flex;
+  flex-direction: column;
+  padding: 0 4px 4px;
+}
+
+.agent-files-changed__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 28px;
+  padding: 2px 6px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--vscode-foreground, #cccccc);
+  text-align: left;
+  cursor: pointer;
+}
+
+.agent-files-changed__row:hover {
+  background: var(--agent-change-block-header-hover);
+}
+
+.agent-files-changed__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-files-changed__meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  flex-shrink: 0;
+  font-weight: 500;
+}
+
+.agent-files-changed__add {
+  color: #3fb950;
+}
+
+.agent-files-changed__del {
+  color: #f85149;
+}
+
+.agent-files-changed__badge {
+  padding: 0 6px;
+  border-radius: 4px;
+  background: rgba(63, 185, 80, 0.15);
+  color: #3fb950;
+  font-size: var(--lr-ui-font-caption);
+  font-weight: 500;
+}
+
+.agent-files-changed__badge--undone {
+  background: rgba(139, 148, 158, 0.18);
+  color: #8b949e;
+}
+
+.agent-files-changed__more {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 32px;
+  margin: 0;
+  padding: 0 12px;
+  border: none;
+  border-top: var(--agent-change-block-body-border);
+  background: var(--agent-change-block-header-bg);
+  color: var(--agent-surface-muted-text);
+  font-size: var(--agent-font-small);
+  cursor: pointer;
+  text-align: left;
+}
+
+.agent-files-changed__more:hover {
+  color: var(--vscode-foreground, #cccccc);
+  background: var(--agent-change-block-header-hover);
+}

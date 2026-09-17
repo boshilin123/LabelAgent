@@ -1,0 +1,36 @@
+.editor-pane {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.editor-pane-track {
+  display: none;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.editor-pane-track--visible {
+  display: flex;
+}
+
+.editor-pane-track .file-viewer {
+  flex: 1;
+  min-height: 0;
+}
+
+.editor-pane-loading {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--vscode-descriptionForeground, #858585);
+}
+
+.editor-pane--monaco-host {
+  flex: 1;
+  min-height: 0;
+}

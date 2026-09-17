@@ -1,0 +1,31 @@
+# LR-Agent-backend deps: auth/users only
+# Agent orchestration (LangChain / MCP / vision) moved to LR-Agent-local
+fastapi==0.136.3
+uvicorn==0.47.0
+pydantic==2.13.4
+pydantic-settings==2.14.1
+email-validator==2.3.0
+python-multipart==0.0.29
+
+# Database / cache / object storage
+sqlalchemy==2.0.49
+alembic==1.18.4
+asyncpg==0.31.0
+redis==7.4.0
+minio==7.2.20
+
+# Security
+argon2-cffi==25.1.0
+python-jose==3.5.0
+
+# Email
+aiosmtplib==5.1.0
+
+# Avatar image processing
+pillow==12.2.0
+
+# Tests
+pytest==9.0.3
+pytest-asyncio==1.3.0
+httpx==0.28.1
+fakeredis==2.35.1

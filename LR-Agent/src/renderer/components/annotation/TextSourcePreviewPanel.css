@@ -1,0 +1,68 @@
+@import './textAnnotationScroll.css';
+
+.text-source-preview {
+  display: flex;
+  flex-direction: column;
+  width: min(360px, 35%);
+  min-width: 220px;
+  border-right: 1px solid var(--vscode-panel-border);
+  background: var(--vscode-editor-background);
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.text-source-preview-header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+  flex-shrink: 0;
+}
+
+.text-source-preview-title {
+  font-size: var(--text-annotation-font-ui);
+  font-weight: 600;
+  color: var(--vscode-foreground);
+}
+
+.text-source-preview-path {
+  font-size: var(--text-annotation-font-label);
+  color: var(--vscode-descriptionForeground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.text-source-preview-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+  flex-shrink: 0;
+}
+
+.text-source-preview-scroll {
+  flex: 1;
+  overflow: auto;
+  padding: 12px;
+  user-select: text;
+}
+
+.text-source-preview-content {
+  margin: 0;
+  font-size: var(--text-annotation-font-body);
+  line-height: 1.7;
+  color: var(--vscode-editor-foreground);
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: var(--vscode-editor-font-family);
+}
+
+.text-source-preview-muted {
+  margin: 0;
+  font-size: var(--text-annotation-font-ui);
+  color: var(--vscode-descriptionForeground);
+  font-style: italic;
+}

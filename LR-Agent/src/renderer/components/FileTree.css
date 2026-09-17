@@ -1,0 +1,289 @@
+.file-tree {
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  font-family: var(--vscode-font-family);
+  font-size: var(--vscode-font-size);
+}
+
+.file-tree-toolbar {
+  flex-shrink: 0;
+  padding: 4px 6px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.file-tree-toolbar vscode-toolbar-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.file-tree-toolbar vscode-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+}
+
+.file-tree-scroll-host {
+  flex: 1;
+  min-height: 0;
+}
+
+.file-tree-scrollable {
+  --file-tree-row-height: 28px;
+  --file-tree-icon-size: 22px;
+  --file-tree-arrow-width: 30px;
+  --file-tree-inline-icon-size: 22px;
+}
+
+.file-tree-scrollable vscode-tree {
+  padding: 4px 0;
+  /* 选中子项时不亮起父级/顶层缩进引导线 */
+  --internal-highlightedIndentGuideDisplay: none;
+  --vscode-list-focusOutline: transparent;
+  --vscode-list-focusAndSelectionOutline: transparent;
+  --internal-selectionBackground: var(
+    --vscode-list-inactiveSelectionBackground,
+    #37373d
+  );
+  --internal-selectionForeground: var(
+    --vscode-list-inactiveSelectionForeground,
+    var(--vscode-foreground, #cccccc)
+  );
+  --internal-selectionIconForeground: var(--vscode-icon-foreground, #cccccc);
+}
+
+.file-tree-scrollable vscode-tree-item {
+  --vscode-list-focusOutline: transparent;
+  --vscode-list-focusAndSelectionOutline: transparent;
+}
+
+.file-tree-scrollable vscode-tree-item::part(wrapper) {
+  outline: none !important;
+  align-items: center;
+  min-height: var(--file-tree-row-height);
+  line-height: var(--file-tree-row-height);
+}
+
+.file-tree-scrollable vscode-tree-item::part(arrow-icon-container) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--file-tree-row-height);
+}
+
+.file-tree-scrollable vscode-tree-item::part(icon-container) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  width: var(--file-tree-icon-size);
+  min-width: var(--file-tree-icon-size);
+  max-width: var(--file-tree-icon-size);
+  height: var(--file-tree-row-height);
+  min-height: var(--file-tree-row-height);
+  max-height: var(--file-tree-row-height);
+  margin-right: 6px;
+  overflow: visible;
+  padding: 0;
+}
+
+.file-tree-scrollable vscode-tree-item[branch]::part(icon-container),
+.file-tree-scrollable vscode-tree-item:not([branch])::part(icon-container) {
+  display: none;
+  width: 0;
+  min-width: 0;
+  max-width: 0;
+  margin-right: 0;
+}
+
+.file-tree-scrollable vscode-tree-item::part(content) {
+  display: flex;
+  align-items: center;
+  min-height: var(--file-tree-row-height);
+  line-height: var(--file-tree-row-height);
+}
+
+/* 聚焦树时保持「非激活」选中色，避免点击文件夹时文件项闪一下亮蓝 */
+.file-tree-scrollable vscode-tree:focus-within {
+  --internal-selectionBackground: var(
+    --vscode-list-inactiveSelectionBackground,
+    #37373d
+  );
+  --internal-selectionForeground: var(
+    --vscode-list-inactiveSelectionForeground,
+    var(--vscode-foreground, #cccccc)
+  );
+  --internal-selectionIconForeground: var(--vscode-icon-foreground, #cccccc);
+}
+
+.file-tree-item-row {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  overflow: visible !important;
+}
+
+.file-tree-item-glyph {
+  flex-shrink: 0;
+  box-sizing: content-box;
+  width: 16px;
+  padding-left: 8px;
+  padding-right: 6px;
+  margin-left: calc(-1 * var(--file-tree-arrow-width));
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: visible;
+}
+
+.file-tree-item-label {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-tree-scrollable vscode-tree-item:not([branch])::part(label) {
+  overflow: visible;
+}
+
+.file-tree-scrollable .file-tree-item-label[data-file-path] {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-tree-scrollable .file-type-icon.file-tree-inline-icon {
+  width: var(--file-tree-inline-icon-size);
+  height: var(--file-tree-inline-icon-size);
+  min-width: var(--file-tree-inline-icon-size);
+  min-height: var(--file-tree-inline-icon-size);
+  max-width: var(--file-tree-inline-icon-size);
+  max-height: var(--file-tree-inline-icon-size);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+  overflow: visible;
+  margin: 0;
+  padding: 0;
+}
+
+.file-tree-scrollable .file-type-icon.file-tree-inline-icon svg {
+  width: var(--file-tree-inline-icon-size);
+  height: var(--file-tree-inline-icon-size);
+  max-width: 100%;
+  max-height: 100%;
+  display: block;
+  margin: auto;
+  flex-shrink: 0;
+}
+
+.file-type-icon {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+}
+
+.file-type-icon svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.file-tree-empty {
+  padding: 16px 12px;
+  color: var(--vscode-descriptionForeground, #858585);
+}
+
+/* ── Prompt Dialog ── */
+
+.lr-prompt-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 11000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(0, 0, 0, 0.45);
+}
+
+.lr-prompt-dialog {
+  background-color: var(--vscode-editor-background, #252526);
+  border: 1px solid var(--vscode-panel-border, #3e3e42);
+  border-radius: 8px;
+  padding: 20px 24px;
+  min-width: 320px;
+  max-width: 440px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.lr-prompt-title {
+  font-size: var(--lr-ui-font-caption);
+  color: var(--vscode-foreground, #cccccc);
+  font-weight: 500;
+}
+
+.lr-prompt-input {
+  width: 100%;
+  padding: 6px 10px;
+  font-size: var(--lr-ui-font-caption);
+  font-family: var(--vscode-font-family);
+  color: var(--vscode-input-foreground, #cccccc);
+  background-color: var(--vscode-input-background, #3c3c3c);
+  border: 1px solid var(--vscode-input-border, #3e3e42);
+  border-radius: 4px;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.lr-prompt-input:focus {
+  border-color: var(--vscode-focusBorder, #007acc);
+}
+
+.lr-prompt-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.lr-prompt-btn {
+  padding: 5px 14px;
+  font-size: var(--lr-ui-font-caption);
+  font-family: var(--vscode-font-family);
+  border-radius: 4px;
+  border: 1px solid var(--vscode-button-border, #3e3e42);
+  background-color: var(--vscode-button-secondaryBackground, #3c3c3c);
+  color: var(--vscode-button-secondaryForeground, #cccccc);
+  cursor: pointer;
+}
+
+.lr-prompt-btn:hover {
+  background-color: var(--vscode-button-secondaryHoverBackground, #4c4c4c);
+}
+
+.lr-prompt-btn--primary {
+  background-color: var(--vscode-button-background, #007acc);
+  color: var(--vscode-button-foreground, #ffffff);
+  border-color: var(--vscode-button-border, transparent);
+}
+
+.lr-prompt-btn--primary:hover {
+  background-color: var(--vscode-button-hoverBackground, #1c97ea);
+}

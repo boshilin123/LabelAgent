@@ -1,0 +1,58 @@
+.agent-subagent-tab {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.agent-subagent-tab-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-shrink: 0;
+  padding: 12px 16px 10px;
+  border-bottom: 1px solid var(--vscode-sideBar-border, #3e3e42);
+}
+
+.agent-subagent-tab-heading {
+  min-width: 0;
+}
+
+.agent-subagent-tab-query {
+  color: var(--vscode-foreground, #cccccc);
+  font-size: var(--agent-font-body);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-subagent-tab-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+  color: var(--vscode-descriptionForeground, #858585);
+  font-size: var(--agent-font-meta);
+}
+
+.agent-subagent-tab-actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 2px;
+}
+
+.agent-subagent-tab-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 12px 16px 20px;
+}
+
+.agent-subagent-tab-empty {
+  color: var(--vscode-descriptionForeground, #858585);
+  font-size: var(--agent-font-small);
+  padding: 8px 0;
+}

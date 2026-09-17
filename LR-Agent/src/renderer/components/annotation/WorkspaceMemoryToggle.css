@@ -1,0 +1,89 @@
+.workspace-memory-toggle {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.workspace-memory-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.workspace-memory-toggle-title {
+  font-size: var(--lr-ui-font-caption);
+  font-weight: 600;
+  color: var(--vscode-foreground, #cccccc);
+}
+
+.workspace-memory-toggle-hint {
+  margin: 0;
+  font-size: var(--lr-ui-font-caption);
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+  line-height: 1.4;
+}
+
+.workspace-memory-switch {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+  width: 36px;
+  height: 20px;
+  cursor: pointer;
+}
+
+.workspace-memory-switch:has(input:disabled) {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.workspace-memory-switch input {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.workspace-memory-switch-track {
+  display: block;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--vscode-input-background, #3c3c3c);
+  border: 1px solid var(--vscode-input-border, #3c3c3c);
+  box-sizing: border-box;
+  transition:
+    background 0.16s ease,
+    border-color 0.16s ease;
+}
+
+.workspace-memory-switch-track::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--vscode-foreground, #cccccc);
+  transition: transform 0.16s ease;
+}
+
+.workspace-memory-switch input:checked + .workspace-memory-switch-track {
+  background: var(--lr-accent-blue, #007acc);
+  border-color: var(--lr-accent-blue, #007acc);
+}
+
+.workspace-memory-switch input:checked + .workspace-memory-switch-track::after {
+  background: #ffffff;
+  transform: translateX(16px);
+}
+
+.workspace-memory-switch input:focus-visible + .workspace-memory-switch-track {
+  outline: 1px solid var(--vscode-focusBorder, #007fd4);
+  outline-offset: 2px;
+}

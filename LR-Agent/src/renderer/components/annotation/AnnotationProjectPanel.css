@@ -1,0 +1,28 @@
+.annotation-project-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  font-size: var(--vscode-font-size);
+}
+
+.annotation-project-toolbar {
+  flex-shrink: 0;
+  padding: 4px 6px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.annotation-project-toolbar vscode-toolbar-button:focus:not(:focus-visible) {
+  --vscode-focusBorder: transparent;
+}
+
+.annotation-project-scroll-host {
+  flex: 1;
+  min-height: 0;
+}
+
+.annotation-project-scrollable {
+  height: 100%;
+}

@@ -1,0 +1,58 @@
+.avatar-crop-dialog {
+  width: min(420px, calc(100vw - 32px));
+  padding: 16px;
+  border-radius: 8px;
+  background: var(--vscode-editor-background, #1e1e1e);
+  border: 1px solid var(--vscode-panel-border, #3c3c3c);
+  box-shadow: 0 8px 32px var(--lr-menu-shadow);
+}
+
+.avatar-crop-title {
+  margin: 0 0 4px;
+  font-size: var(--lr-ui-font-large);
+  font-weight: 600;
+  color: var(--vscode-foreground, #cccccc);
+}
+
+.avatar-crop-hint {
+  margin: 0 0 12px;
+  font-size: var(--lr-ui-font-small);
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+}
+
+.avatar-crop-area {
+  position: relative;
+  height: 280px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #000;
+}
+
+.avatar-crop-zoom-label {
+  display: block;
+  margin: 12px 0 4px;
+  font-size: var(--lr-ui-font-small);
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+}
+
+.avatar-crop-zoom {
+  width: 100%;
+  accent-color: var(--vscode-button-background, #888888);
+}
+
+.avatar-crop-error {
+  margin: 8px 0 0;
+  font-size: var(--lr-ui-font-small);
+  color: var(--vscode-errorForeground);
+}
+
+.avatar-crop-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.avatar-crop-actions .app-btn {
+  padding: 6px 14px;
+}

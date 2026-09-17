@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "projectId": "c1afb015-ee87-4349-9a8a-5cd5d2bf1bbf",
+  "filePath": "IMG_8168.JPG",
+  "modality": "image",
+  "annotationType": "bbox",
+  "source": {
+    "width": 4032,
+    "height": 3024,
+    "mtimeMs": 1787035287000,
+    "size": 2807604
+  },
+  "updatedAt": "2026-09-17T07:59:28.617Z",
+  "annotations": []
+}

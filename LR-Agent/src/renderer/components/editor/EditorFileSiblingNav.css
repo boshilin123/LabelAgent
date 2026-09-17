@@ -1,0 +1,11 @@
+.editor-file-sibling-nav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.editor-file-sibling-nav--disabled {
+  opacity: 0.35;
+  pointer-events: none;
+}

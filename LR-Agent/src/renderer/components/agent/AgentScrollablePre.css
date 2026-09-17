@@ -1,0 +1,20 @@
+.agent-scrollable-pre {
+  width: 100%;
+  min-width: 0;
+}
+
+.agent-scrollable-pre__viewport {
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.agent-scrollable-pre__code {
+  min-width: min-content;
+  margin: 0;
+  border: none;
+  background: transparent;
+}
+
+.agent-scrollable-pre .overlay-horizontal-scroll-area__content {
+  padding-bottom: 4px;
+}

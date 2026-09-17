@@ -1,0 +1,51 @@
+.text-lfm-compare {
+  display: flex;
+  gap: 0;
+  margin-bottom: 10px;
+}
+
+.text-lfm-compare-panel {
+  flex: 1;
+  min-width: 0;
+}
+
+.text-lfm-compare-panel .text-lfm-textarea {
+  border-radius: 4px;
+}
+
+.text-lfm-compare-chosen {
+  --compare-accent: var(--vscode-testing-iconPassed, var(--vscode-charts-green, #73c991));
+}
+
+.text-lfm-compare-rejected {
+  --compare-accent: var(--vscode-testing-iconFailed, var(--vscode-charts-red, #f48771));
+}
+
+.text-lfm-compare-chosen .text-lfm-textarea {
+  border-color: color-mix(in srgb, var(--compare-accent) 55%, var(--vscode-input-border));
+}
+
+.text-lfm-compare-chosen .text-lfm-textarea:focus {
+  border-color: var(--compare-accent);
+}
+
+.text-lfm-compare-rejected .text-lfm-textarea {
+  border-color: color-mix(in srgb, var(--compare-accent) 55%, var(--vscode-input-border));
+}
+
+.text-lfm-compare-rejected .text-lfm-textarea:focus {
+  border-color: var(--compare-accent);
+}
+
+.text-lfm-label--chosen {
+  color: var(--compare-accent, var(--vscode-testing-iconPassed)) !important;
+}
+
+.text-lfm-label--rejected {
+  color: var(--compare-accent, var(--vscode-testing-iconFailed)) !important;
+}
+
+.text-lfm-compare-divider {
+  width: 8px;
+  flex-shrink: 0;
+}

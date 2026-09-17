@@ -1,0 +1,78 @@
+name: Test
+
+on: [push, pull_request]
+
+jobs:
+  frontend:
+    runs-on: windows-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v4
+
+      - name: Install Node.js and NPM
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Cache embedded Python runtimes
+        uses: actions/cache@v4
+        with:
+          path: assets/python-runtime
+          key: python-runtime-win-x64-${{ hashFiles('scripts/fetchPythonRuntimes.mjs') }}
+
+      - name: npm install
+        run: npm install
+
+      - name: npm run package
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run package
+
+      - name: npm run lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm exec tsc
+
+      - name: npm test
+        run: npm test
+
+  python-envs:
+    runs-on: windows-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v4
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Cache embedded Python runtimes
+        uses: actions/cache@v4
+        with:
+          path: assets/python-runtime
+          key: python-runtime-win-x64-${{ hashFiles('scripts/fetchPythonRuntimes.mjs') }}
+
+      - name: Cache pip wheels
+        uses: actions/cache@v4
+        with:
+          path: .ci-pip-cache
+          key: pip-wheels-win-${{ hashFiles('vendor/local-agent/requirements.txt', 'vendor/inference/requirements-cpu.txt') }}
+
+      - name: Fetch embedded Python runtimes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run fetch-python-runtimes
+
+      - name: Install envs and smoke-test
+        env:
+          PIP_CACHE_DIR: ${{ github.workspace }}/.ci-pip-cache
+        run: node scripts/ciInstallAndTest.mjs

@@ -1,0 +1,128 @@
+.agent-reasoning-block {
+  margin: 4px 0 10px;
+}
+
+.agent-reasoning-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+  font-size: var(--agent-font-small);
+  cursor: pointer;
+  text-align: left;
+}
+
+.agent-reasoning-toggle:hover {
+  color: var(--vscode-foreground, #cccccc);
+}
+
+.agent-reasoning-body {
+  margin-top: 6px;
+  padding-left: 2px;
+  font-size: var(--agent-font-small);
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+}
+
+.agent-reasoning-body .agent-markdown {
+  font-size: var(--agent-font-small);
+  line-height: 1.5;
+}
+
+/* Tool blocks: borderless, aligned with pipeline / reasoning */
+.agent-tool-block {
+  margin: 4px 0 8px;
+}
+
+.agent-block-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+  border: none;
+  background: transparent;
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+  font-size: var(--agent-font-small);
+  cursor: pointer;
+  text-align: left;
+}
+
+.agent-block-toggle:hover {
+  color: var(--vscode-foreground, #cccccc);
+}
+
+.agent-tool-body {
+  padding: 4px 0 6px 18px;
+}
+
+.agent-tool-section + .agent-tool-section {
+  margin-top: 8px;
+}
+
+.agent-tool-label {
+  font-size: var(--agent-font-meta);
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+  margin-bottom: 4px;
+}
+
+.agent-tool-body .agent-scrollable-pre__viewport {
+  padding: 8px;
+  font-size: var(--agent-font-meta);
+  line-height: 1.45;
+  background: var(--vscode-textCodeBlock-background, #1e1e1e);
+  color: var(--vscode-foreground, #cccccc);
+}
+
+.agent-tool-body .agent-scrollable-pre__code {
+  font-family: Consolas, 'Courier New', monospace;
+  font-size: inherit;
+  line-height: inherit;
+  color: inherit;
+}
+
+.agent-proposal-summary {
+  margin: 4px 0 8px;
+  font-size: var(--agent-font-small);
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+}
+
+.agent-proposal-summary--error {
+  color: var(--vscode-errorForeground, #f48771);
+}
+
+/* Terminal command approval (in-chat confirm bar, always visible) */
+.agent-terminal-approval {
+  margin-top: 4px;
+}
+
+.agent-terminal-approval-hint {
+  font-size: var(--agent-font-small);
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+  margin-bottom: 6px;
+}
+
+.agent-terminal-approval-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.agent-terminal-btn {
+  padding: 2px 12px;
+  border: 1px solid var(--vscode-input-border, #3c3c3c);
+  border-radius: 3px;
+  background: var(--vscode-button-background, #0e639c);
+  color: var(--vscode-button-foreground, #ffffff);
+  font-size: var(--agent-font-small);
+  cursor: pointer;
+}
+
+.agent-terminal-btn.reject {
+  background: transparent;
+  color: var(--vscode-foreground, #cccccc);
+}
+
+.agent-terminal-btn:hover {
+  filter: brightness(1.15);
+}

@@ -1,0 +1,287 @@
+@import './AgentChangeBlock.shared.css';
+
+.agent-annotation-change-block {
+  margin: 8px 0;
+  border: var(--agent-change-block-border);
+  border-radius: var(--agent-change-block-radius);
+  background: var(--agent-change-block-bg);
+  overflow: hidden;
+  font-size: var(--agent-change-block-font-size);
+  --agent-change-block-fade-to: var(
+    --agent-change-block-bg,
+    rgba(255, 255, 255, 0.03)
+  );
+}
+
+.agent-annotation-change-block--applied {
+  opacity: 0.85;
+}
+
+.agent-annotation-change-block-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* 提案来源标签（批量标注 / 标注修改） */
+.agent-annotation-change-block__source {
+  margin: 0 0 2px 2px;
+  font-size: var(--agent-font-meta, 11px);
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+  opacity: 0.85;
+}
+
+.agent-annotation-change-block__chevron,
+.agent-annotation-change-block__name {
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+}
+
+.agent-annotation-change-block__chevron {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.agent-annotation-change-block__verb {
+  flex-shrink: 0;
+  color: var(--agent-surface-muted-text);
+}
+
+.agent-annotation-change-block__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--vscode-font-family);
+}
+
+.agent-annotation-change-block__name:hover {
+  text-decoration: underline;
+}
+
+.agent-annotation-change-block__stats {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  flex-shrink: 0;
+  font-size: var(--lr-ui-font-caption);
+  font-weight: 500;
+}
+
+.agent-annotation-change-block__stat-add {
+  color: #3fb950;
+}
+
+.agent-annotation-change-block__stat-del {
+  color: #f85149;
+}
+
+.agent-annotation-change-block__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 32px;
+  padding: 4px 8px;
+  background: var(--agent-change-block-header-bg);
+  color: var(--vscode-foreground, #cccccc);
+  text-align: left;
+}
+
+.agent-annotation-change-block__file-summary {
+  padding: 0 0 4px;
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+  font-size: var(--lr-ui-font-caption);
+}
+
+.agent-annotation-change-block__list-wrap {
+  border-top: var(--agent-change-block-body-border);
+}
+
+.agent-annotation-change-block__list-wrap--clamped
+  .agent-annotation-change-block__list {
+  max-height: calc(var(--agent-annotation-list-item-height, 28px) * 4 + 12px);
+  overflow: hidden;
+}
+
+.agent-annotation-change-block__list {
+  list-style: none;
+  margin: 0;
+  padding: 4px 8px 8px;
+}
+
+.agent-annotation-change-block__list-scroll-host {
+  min-width: 0;
+}
+
+.agent-annotation-change-block__item-row {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  border-radius: 4px;
+}
+
+.agent-annotation-change-block__item-row--expanded {
+  background: var(--agent-change-block-header-hover);
+}
+
+.agent-annotation-change-block__item-row--clickable {
+  cursor: pointer;
+}
+
+.agent-annotation-change-block__item-row--clickable:hover .agent-annotation-change-block__path {
+  text-decoration: underline;
+}
+
+.agent-annotation-change-block__item-chevron {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 20px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 4px 0 0 4px;
+  background: transparent;
+  color: var(--agent-surface-muted-text);
+  cursor: pointer;
+}
+
+.agent-annotation-change-block__item-chevron:hover {
+  background: var(--agent-change-block-header-hover);
+  color: var(--vscode-foreground, #cccccc);
+}
+
+.agent-annotation-change-block__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+  min-height: 24px;
+  padding: 2px 4px;
+  border: none;
+  border-radius: 0 4px 4px 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.agent-annotation-change-block__item:hover {
+  background: var(--agent-change-block-header-hover);
+}
+
+.agent-annotation-change-block__item:focus-visible {
+  outline: 1px solid var(--agent-surface-focus-outline);
+  outline-offset: 1px;
+}
+
+.agent-annotation-change-block__path {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--vscode-font-family);
+}
+
+.agent-annotation-change-block__summary {
+  flex-shrink: 0;
+  color: var(--agent-surface-muted-text);
+  font-size: var(--lr-ui-font-caption);
+}
+
+.agent-annotation-change-block__summary--delete {
+  color: #f85149;
+}
+
+/* Preview area */
+.agent-annotation-change-block__preview-area {
+  margin: 0;
+  padding: 4px 0 0;
+}
+
+.agent-annotation-change-block__preview-empty {
+  padding: 4px 12px;
+  font-size: var(--lr-ui-font-caption);
+  color: var(--agent-surface-muted-text);
+  font-style: italic;
+}
+
+.agent-annotation-change-block__preview-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.agent-annotation-change-block__preview-card {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 12px;
+  min-height: 28px;
+  font-family: var(--vscode-font-family);
+  font-size: var(--agent-change-block-font-size);
+  line-height: 20px;
+  background: var(--agent-change-block-header-bg);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.agent-annotation-change-block__preview-card:hover {
+  background: var(--agent-change-block-header-hover);
+}
+
+.agent-annotation-change-block__preview-card:focus-visible {
+  outline: 1px solid var(--agent-surface-focus-outline);
+  outline-offset: 1px;
+}
+
+.agent-annotation-change-block__preview-index {
+  flex-shrink: 0;
+  color: var(--agent-surface-muted-text);
+  min-width: 22px;
+}
+
+.agent-annotation-change-block__preview-kind {
+  flex-shrink: 0;
+  padding: 0 4px;
+  border-radius: 3px;
+  background: rgba(88, 166, 255, 0.12);
+  color: #58a6ff;
+  font-size: var(--lr-ui-font-caption);
+  font-weight: 500;
+  line-height: 16px;
+}
+
+.agent-annotation-change-block__preview-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--vscode-foreground, #cccccc);
+}
+
+.agent-annotation-change-block__preview-open {
+  flex-shrink: 0;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--agent-surface-muted-text);
+  font-size: var(--lr-ui-font-caption);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.agent-annotation-change-block__preview-card:hover .agent-annotation-change-block__preview-open {
+  color: var(--vscode-foreground, #cccccc);
+}

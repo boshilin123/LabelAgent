@@ -1,0 +1,147 @@
+@import './textAnnotationScroll.css';
+
+.text-span-ner-editor {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--vscode-editor-background);
+}
+
+.text-span-ner-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 12px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.text-span-ner-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+  background: var(--vscode-editor-background);
+  flex-shrink: 0;
+}
+
+.text-span-ner-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.text-span-ner-file-path {
+  font-size: var(--text-annotation-font-ui);
+  color: var(--vscode-descriptionForeground);
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.text-span-ner-stats {
+  font-size: var(--text-annotation-font-ui);
+  color: var(--vscode-badge-foreground);
+  background: var(--vscode-badge-background);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.text-span-ner-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.text-span-ner-toolbar-hint {
+  font-size: var(--text-annotation-font-ui);
+  color: var(--vscode-descriptionForeground);
+}
+
+.text-span-ner-label-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+  background: var(--vscode-editor-background);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.text-span-ner-label-bar-title {
+  font-size: var(--text-annotation-font-ui);
+  color: var(--vscode-descriptionForeground);
+  white-space: nowrap;
+}
+
+.text-span-ner-label-bar-empty {
+  font-size: var(--text-annotation-font-ui);
+  color: var(--vscode-descriptionForeground);
+  font-style: italic;
+}
+
+.text-span-ner-label-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.text-span-ner-body {
+  flex: 1;
+  overflow: auto;
+  padding: 16px;
+}
+
+.text-span-ner-text {
+  font-size: var(--text-annotation-font-body);
+  line-height: 1.7;
+  color: var(--vscode-editor-foreground);
+  white-space: pre-wrap;
+  word-break: break-word;
+  user-select: text;
+  cursor: text;
+  font-family: var(--vscode-editor-font-family);
+}
+
+.text-span-ner-muted {
+  color: var(--vscode-descriptionForeground);
+  font-style: italic;
+}
+
+.text-span-ner-highlight {
+  position: relative;
+  display: inline;
+  cursor: pointer;
+  border-radius: 2px;
+  padding: 1px 0;
+  transition: background 0.15s ease;
+}
+
+.text-span-ner-highlight:hover {
+  filter: brightness(1.08);
+}
+
+.text-span-ner-label-tag {
+  display: inline-block;
+  font-size: var(--text-annotation-font-meta);
+  padding: 1px 5px;
+  border-radius: 3px;
+  margin-left: 2px;
+  vertical-align: top;
+  line-height: 1.4;
+  font-weight: 500;
+  user-select: none;
+}
+
+.text-span-ner-selection-bar {
+  padding: 6px 12px;
+  border-top: 1px solid var(--vscode-panel-border);
+  background: var(--vscode-editor-background);
+  font-size: var(--text-annotation-font-ui);
+  color: var(--vscode-foreground);
+  flex-shrink: 0;
+}

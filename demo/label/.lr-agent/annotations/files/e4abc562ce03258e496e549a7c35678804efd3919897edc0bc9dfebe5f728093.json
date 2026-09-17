@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "projectId": "c1afb015-ee87-4349-9a8a-5cd5d2bf1bbf",
+  "filePath": "IMG_8166.JPG",
+  "modality": "image",
+  "annotationType": "bbox",
+  "source": {
+    "width": 4032,
+    "height": 3024,
+    "mtimeMs": 1787035280000,
+    "size": 2340054
+  },
+  "updatedAt": "2026-09-17T08:29:57.295Z",
+  "annotations": [
+    {
+      "id": "4036e331-7b93-4106-8b66-93a5de361f32",
+      "kind": "bbox",
+      "labelId": null,
+      "createdAt": "2026-09-17T08:29:56.841Z",
+      "updatedAt": "2026-09-17T08:29:56.841Z",
+      "source": "preannot",
+      "x": 0.19102058713398282,
+      "y": 0.36992505996946307,
+      "width": 0.2029856424483042,
+      "height": 0.10183162790126901
+    }
+  ]
+}

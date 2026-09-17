@@ -1,0 +1,15 @@
+.llm-provider-menu-portal {
+  position: fixed;
+  z-index: 1200;
+  min-width: 140px;
+  margin: 0;
+  transform-origin: top right;
+}
+
+.llm-provider-menu-portal.llm-provider-menu-open-up {
+  transform-origin: bottom right;
+}
+
+.llm-provider-menu-portal[style*='visibility: hidden'] {
+  pointer-events: none;
+}

@@ -1,0 +1,25 @@
+.auth-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  gap: 12px;
+  color: var(--vscode-foreground, #cccccc);
+  background: var(--vscode-editor-background, #1e1e1e);
+}
+
+.auth-loading-spinner {
+  width: 28px;
+  height: 28px;
+  border: 2px solid var(--vscode-panel-border, #3c3c3c);
+  border-top-color: var(--vscode-focusBorder, #888888);
+  border-radius: 50%;
+  animation: auth-spin 0.8s linear infinite;
+}
+
+@keyframes auth-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

@@ -1,0 +1,275 @@
+.agent-message-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.agent-message-item--user {
+  align-items: stretch;
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  isolation: isolate;
+  overflow: visible;
+  margin-left: -36px;
+  margin-right: calc(
+    -36px + var(--agent-overlay-scrollbar-size, 6px) +
+      var(--agent-overlay-scrollbar-inset, 3px) * 2
+  );
+  padding: 12px 36px 8px;
+  background: var(--lr-agent-panel-background);
+}
+
+.agent-message-sticky-sentinel {
+  height: 1px;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  pointer-events: none;
+  visibility: hidden;
+}
+
+.agent-message-item--user::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  height: 16px;
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(
+    to bottom,
+    var(--lr-agent-panel-background),
+    transparent
+  );
+}
+
+.agent-message-item--user-stuck::after {
+  opacity: 1;
+}
+
+.agent-message-item--assistant {
+  align-items: stretch;
+  position: relative;
+  margin-bottom: 20px;
+}
+
+/* ── User bubble (Cursor-style) ── */
+
+.agent-user-bubble {
+  width: 100%;
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--vscode-foreground, #cccccc);
+  font-size: var(--agent-font-body);
+  line-height: 1.55;
+  text-align: left;
+  white-space: pre-wrap;
+  word-break: break-word;
+  cursor: text;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.agent-user-bubble:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.agent-user-bubble:disabled {
+  cursor: default;
+  opacity: 0.85;
+}
+
+.agent-user-bubble--editing {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px 8px;
+  border-color: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.03);
+  cursor: default;
+}
+
+[data-theme='light'] .agent-user-bubble {
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: rgba(0, 0, 0, 0.02);
+}
+
+[data-theme='light'] .agent-user-bubble:hover:not(:disabled) {
+  border-color: rgba(0, 0, 0, 0.12);
+  background: rgba(0, 0, 0, 0.04);
+}
+
+[data-theme='light'] .agent-user-bubble--editing {
+  border-color: rgba(0, 0, 0, 0.1);
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.agent-user-bubble-input {
+  width: 100%;
+  min-height: 24px;
+  max-height: 240px;
+  resize: none;
+  padding: 4px 4px;
+  border: none;
+  background: transparent;
+  color: var(--vscode-foreground, #cccccc);
+  font-family: inherit;
+  font-size: var(--agent-font-body);
+  line-height: 1.55;
+}
+
+.agent-user-bubble-input:focus {
+  outline: none;
+}
+
+.agent-user-bubble-footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  min-height: 28px;
+  padding-top: 2px;
+}
+
+/* ── Assistant (no bubble) ── */
+
+.agent-assistant-content {
+  width: 100%;
+  padding: 2px 0 4px;
+  font-size: var(--agent-font-body);
+  line-height: 1.6;
+  color: var(--vscode-foreground, #cccccc);
+}
+
+.agent-assistant-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  min-height: 28px;
+  margin-top: 6px;
+  flex-shrink: 0;
+}
+
+.agent-assistant-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.agent-assistant-action {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+.agent-assistant-action vscode-icon {
+  color: inherit;
+}
+
+.agent-assistant-action:hover:not(:disabled) {
+  color: var(--vscode-foreground, #cccccc);
+  background: rgba(128, 128, 128, 0.15);
+}
+
+.agent-assistant-action:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.agent-message-meta {
+  margin-top: 10px;
+  font-size: var(--agent-font-meta);
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+}
+
+.agent-message-meta--error {
+  color: var(--vscode-errorForeground, #f48771);
+}
+
+.agent-stream-cursor {
+  display: inline-block;
+  margin-left: 2px;
+  animation: agent-cursor-blink 1s step-end infinite;
+  color: var(--vscode-foreground, #cccccc);
+}
+
+.agent-awaiting-confirm {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+  padding: 6px 10px;
+  border: 1px solid var(--vscode-panelBorder, rgba(128, 128, 128, 0.25));
+  border-radius: 6px;
+  background: var(--vscode-editorWidget-background, rgba(128, 128, 128, 0.08));
+}
+
+.agent-awaiting-confirm__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--agent-font-meta);
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+}
+
+.agent-awaiting-confirm__actions {
+  display: inline-flex;
+  gap: 8px;
+}
+
+.agent-awaiting-confirm__btn {
+  padding: 2px 12px;
+  border: none;
+  border-radius: 4px;
+  background: var(--vscode-button-secondaryBackground, rgba(128, 128, 128, 0.2));
+  color: var(--vscode-button-secondaryForeground, #cccccc);
+  font-size: var(--agent-font-meta);
+  cursor: pointer;
+}
+
+.agent-awaiting-confirm__btn:hover:not(:disabled) {
+  background: var(--vscode-button-secondaryHoverBackground, rgba(128, 128, 128, 0.35));
+}
+
+.agent-awaiting-confirm__btn--primary {
+  background: var(--vscode-button-background, #0e639c);
+  color: var(--vscode-button-foreground, #ffffff);
+}
+
+.agent-awaiting-confirm__btn--primary:hover:not(:disabled) {
+  background: var(--vscode-button-hoverBackground, #1177bb);
+}
+
+.agent-awaiting-confirm__btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.agent-stream-phase {
+  margin: 2px 0;
+  font-size: var(--agent-font-meta);
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+  animation: agent-cursor-blink 1.6s ease-in-out infinite;
+}
+
+@keyframes agent-cursor-blink {
+  50% {
+    opacity: 0;
+  }
+}

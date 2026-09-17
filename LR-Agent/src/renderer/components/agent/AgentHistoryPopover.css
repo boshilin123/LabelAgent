@@ -1,0 +1,183 @@
+.agent-history-popover {
+  position: fixed;
+  z-index: 1200;
+  width: min(320px, calc(100vw - 16px));
+  min-height: 160px;
+  max-height: 640px;
+  display: flex;
+  flex-direction: column;
+  border-radius: 10px;
+  border: 1px solid var(--vscode-widget-border, #454545);
+  background: var(--vscode-editorWidget-background, #252526);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.42);
+  overflow: hidden;
+  transform-origin: top right;
+
+  --agent-overlay-scrollbar-size: 6px;
+  --agent-overlay-scrollbar-inset: 3px;
+  --agent-overlay-scrollbar-thumb: rgba(255, 255, 255, 0.22);
+  --agent-overlay-scrollbar-thumb-hover: rgba(255, 255, 255, 0.36);
+}
+
+[data-theme='light'] .agent-history-popover {
+  --agent-overlay-scrollbar-thumb: rgba(0, 0, 0, 0.18);
+  --agent-overlay-scrollbar-thumb-hover: rgba(0, 0, 0, 0.3);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.14);
+}
+
+.agent-history-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--vscode-widget-border, #454545);
+}
+
+.agent-history-search-icon {
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+  font-size: var(--agent-font-body);
+  flex-shrink: 0;
+}
+
+.agent-history-search input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  color: var(--vscode-foreground, #cccccc);
+  font-size: var(--agent-font-body);
+  outline: none;
+}
+
+.agent-history-search input::placeholder {
+  color: var(--vscode-input-placeholderForeground, #8a8a8a);
+}
+
+.agent-history-groups-scroll {
+  flex: 1;
+  min-height: 0;
+}
+
+.agent-history-groups {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 4px 0 6px;
+}
+
+.agent-history-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px 14px;
+  font-size: var(--agent-font-small);
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+}
+
+.agent-history-group-label {
+  padding: 6px 14px 3px;
+  font-size: var(--agent-font-small);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+}
+
+.agent-history-group-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.agent-history-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 6px;
+}
+
+.agent-history-row-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--vscode-foreground, #cccccc);
+  font-size: var(--agent-font-small);
+  text-align: left;
+  cursor: pointer;
+}
+
+.agent-history-row-main:hover,
+.agent-history-row-main--active {
+  background: var(--vscode-list-hoverBackground, rgba(128, 128, 128, 0.16));
+}
+
+.agent-history-row-icon {
+  flex-shrink: 0;
+  font-size: var(--agent-font-body);
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+}
+
+.agent-history-row-main--active .agent-history-row-icon {
+  color: var(--vscode-foreground, #cccccc);
+}
+
+.agent-history-row-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.agent-history-row-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-history-row-preview {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--agent-font-meta);
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+}
+
+.agent-history-loading {
+  padding: 8px 14px 10px;
+  font-size: var(--agent-font-meta);
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+  text-align: center;
+}
+
+.agent-history-row-delete {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.agent-history-row:hover .agent-history-row-delete,
+.agent-history-row-delete:focus-visible {
+  opacity: 1;
+}
+
+.agent-history-row-delete:hover {
+  background: rgba(244, 135, 113, 0.12);
+  color: var(--vscode-errorForeground, #f48771);
+}

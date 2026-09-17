@@ -1,0 +1,18 @@
+{
+  "id": "e2e2a901-032f-41f1-84f5-ffec8c9c45c0",
+  "name": "fire_extinguisher",
+  "directoryPath": "D:\\Study\\LR-Agent\\demo\\fire_extinguisher",
+  "modality": "image",
+  "annotationType": "bbox",
+  "labels": [
+    {
+      "id": "970680ff-eeee-4dbd-92fa-1a5d9e9cfa42",
+      "name": "fire_extinguisher",
+      "color": "#F44336"
+    }
+  ],
+  "workspaceMemoryEnabled": false,
+  "createdAt": "2026-09-17T07:55:02.277Z",
+  "updatedAt": "2026-09-17T08:00:43.072Z",
+  "lastOpenedAt": "2026-09-17T08:00:43.072Z"
+}

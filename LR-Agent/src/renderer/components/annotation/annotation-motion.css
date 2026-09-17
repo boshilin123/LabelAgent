@@ -1,0 +1,14 @@
+/**
+ * Shared motion tokens for annotation UI (P0 CSS transitions).
+ * Durations align with motion/tokens.ts (tab ≈ 180ms).
+ */
+:root {
+  --annotation-motion-duration: 180ms;
+  --annotation-motion-ease: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --annotation-motion-duration: 0.01ms;
+  }
+}

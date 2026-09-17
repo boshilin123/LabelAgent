@@ -1,0 +1,188 @@
+.agent-pipeline-block {
+  margin: 4px 0 10px;
+}
+
+.agent-pipeline-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 4px 0;
+  border: none;
+  background: transparent;
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+  font-size: var(--agent-font-small);
+  cursor: pointer;
+  text-align: left;
+}
+
+.agent-pipeline-toggle:hover {
+  color: var(--vscode-foreground, #cccccc);
+}
+
+.agent-pipeline-body {
+  padding: 4px 0 6px 18px;
+}
+
+.agent-pipeline-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.agent-pipeline-list--nested {
+  margin-top: 6px;
+}
+
+.agent-pipeline-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: var(--agent-font-small);
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+}
+
+.agent-pipeline-step--done {
+  color: var(--vscode-foreground, #cccccc);
+}
+
+.agent-pipeline-step--error {
+  color: var(--vscode-errorForeground, #f48771);
+}
+
+.agent-pipeline-step--running {
+  color: var(--vscode-foreground, #cccccc);
+}
+
+/* 任务队列行（客户端标注工具）：排队中弱化显示 */
+.agent-pipeline-list--tasks {
+  margin-bottom: 6px;
+  padding-bottom: 6px;
+  border-bottom: 1px dashed var(--vscode-panelBorder, rgba(128, 128, 128, 0.25));
+}
+
+.agent-pipeline-step--queued {
+  opacity: 0.7;
+}
+
+.agent-pipeline-step-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.agent-pipeline-step-label {
+  font-weight: 600;
+  color: var(--vscode-foreground, #cccccc);
+}
+
+.agent-pipeline-step-message {
+  word-break: break-word;
+}
+
+.agent-pipeline-step-detail {
+  font-size: var(--agent-font-meta);
+  opacity: 0.85;
+}
+
+.agent-pipeline-workers summary {
+  cursor: pointer;
+  font-size: var(--agent-font-meta);
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+  user-select: none;
+}
+
+.agent-pipeline-embedded {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.agent-pipeline-embedded-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+  font-size: var(--agent-font-meta);
+  cursor: pointer;
+  text-align: left;
+}
+
+.agent-pipeline-embedded-toggle:hover {
+  color: var(--vscode-foreground, #cccccc);
+}
+
+.agent-pipeline-embedded-pre {
+  margin: 2px 0 6px 16px;
+  padding: 8px;
+  font-size: var(--agent-font-meta);
+  line-height: 1.45;
+  white-space: pre-wrap;
+  background: var(--vscode-textCodeBlock-background, rgba(128, 128, 128, 0.12));
+  color: var(--vscode-foreground, #cccccc);
+}
+
+.agent-pipeline-embedded-pre .agent-scrollable-pre__code {
+  white-space: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  color: inherit;
+}
+
+.agent-pipeline-embedded-error {
+  font-size: var(--agent-font-meta);
+  color: var(--vscode-errorForeground, #f48771);
+  margin-bottom: 4px;
+}
+
+.agent-pipeline-embedded-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.agent-pipeline-embedded-action {
+  padding: 2px 8px;
+  border: none;
+  border-radius: 4px;
+  background: var(--vscode-button-secondaryBackground, rgba(128, 128, 128, 0.2));
+  color: var(--vscode-button-secondaryForeground, #cccccc);
+  font-size: var(--agent-font-meta);
+  cursor: pointer;
+}
+
+.agent-pipeline-embedded-action:hover:not(:disabled) {
+  background: var(--vscode-button-secondaryHoverBackground, rgba(128, 128, 128, 0.35));
+}
+
+.agent-pipeline-embedded-action:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.agent-pipeline-embedded-action--muted {
+  background: transparent;
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+}
+
+.agent-pipeline-spin {
+  animation: agent-pipeline-spin 1s linear infinite;
+}
+
+@keyframes agent-pipeline-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}

@@ -1,0 +1,147 @@
+@import './textAnnotationScroll.css';
+
+/* ── 共享 LLM 编辑器样式 ── */
+.text-lfm-editor {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--vscode-editor-background);
+}
+
+.text-lfm-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 12px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.text-lfm-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+  flex-shrink: 0;
+  background: var(--vscode-editor-background);
+}
+
+.text-lfm-title {
+  font-size: var(--text-annotation-font-body);
+  font-weight: 600;
+  color: var(--vscode-foreground);
+}
+
+.text-lfm-stats {
+  font-size: var(--text-annotation-font-ui);
+  color: var(--vscode-badge-foreground);
+  background: var(--vscode-badge-background);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.text-lfm-freeform-banner {
+  padding: 6px 12px;
+  font-size: var(--text-annotation-font-ui);
+  color: var(--vscode-descriptionForeground);
+  background: color-mix(in srgb, var(--vscode-editorWarning-foreground, #cca700) 12%, transparent);
+  border-bottom: 1px solid var(--vscode-panel-border);
+  flex-shrink: 0;
+}
+
+.text-lfm-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.text-lfm-workspace {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* 表单区 */
+.text-lfm-form {
+  flex: 1;
+  min-width: 0;
+  padding: 12px;
+  overflow-y: auto;
+  background: var(--vscode-editor-background);
+}
+
+.text-lfm-heading {
+  margin: 0 0 8px 0;
+  font-size: var(--text-annotation-font-body);
+  font-weight: 600;
+  color: var(--vscode-foreground);
+}
+
+.text-lfm-field {
+  margin-bottom: 10px;
+}
+
+.text-lfm-label {
+  display: block;
+  font-size: var(--text-annotation-font-label);
+  font-weight: 500;
+  color: var(--vscode-descriptionForeground);
+  margin-bottom: 4px;
+}
+
+/* 自然语言字段：UI 字体 */
+.text-lfm-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  font-size: var(--text-annotation-font-body);
+  line-height: 1.6;
+  background: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  border: 1px solid var(--vscode-input-border);
+  border-radius: 4px;
+  resize: vertical;
+  min-height: var(--text-annotation-textarea-min-height);
+  max-height: var(--text-annotation-textarea-max-height);
+  overflow-y: auto;
+  font-family: var(--vscode-font-family);
+  transition: border-color 0.15s;
+}
+
+.text-lfm-textarea--compact {
+  min-height: var(--text-annotation-textarea-compact-min-height);
+}
+
+.text-lfm-textarea--large {
+  min-height: var(--text-annotation-textarea-large-min-height);
+  max-height: var(--text-annotation-textarea-large-max-height);
+}
+
+/* 源文本 / Input 字段：等宽字体 */
+.text-lfm-textarea--source {
+  font-family: var(--vscode-editor-font-family);
+  font-size: var(--text-annotation-font-source);
+  line-height: 1.55;
+  min-height: var(--text-annotation-textarea-source-min-height);
+  max-height: var(--text-annotation-textarea-source-max-height);
+}
+
+.text-lfm-textarea:focus {
+  outline: none;
+  border-color: var(--vscode-focusBorder);
+}
+
+.text-lfm-form-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.text-lfm-muted {
+  font-size: var(--text-annotation-font-ui);
+  color: var(--vscode-descriptionForeground);
+  font-style: italic;
+}

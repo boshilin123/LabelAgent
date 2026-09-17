@@ -1,0 +1,24 @@
+import { Menu, BrowserWindow } from 'electron';
+
+export default class MenuBuilder {
+  mainWindow: BrowserWindow;
+
+  constructor(mainWindow: BrowserWindow) {
+    this.mainWindow = mainWindow;
+  }
+
+  setupDevelopmentEnvironment(): void {
+    this.mainWindow.webContents.on('context-menu', (_, props) => {
+      const { x, y } = props;
+
+      Menu.buildFromTemplate([
+        {
+          label: 'Inspect element',
+          click: () => {
+            this.mainWindow.webContents.inspectElement(x, y);
+          },
+        },
+      ]).popup({ window: this.mainWindow });
+    });
+  }
+}

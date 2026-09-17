@@ -1,0 +1,73 @@
+.lr-context-menu {
+  position: fixed;
+  z-index: 10000;
+  min-width: 180px;
+  max-width: 260px;
+  padding: 4px 0;
+  border-radius: 6px;
+  background-color: var(--vscode-menu-background, #252526);
+  border: 1px solid var(--vscode-menu-border, #454545);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.36);
+  user-select: none;
+  -webkit-user-select: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  overflow: hidden;
+}
+
+.lr-context-menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  height: 30px;
+  padding: 0 12px;
+  border: none;
+  background: transparent;
+  color: var(--vscode-menu-foreground, #cccccc);
+  font-family: var(--vscode-font-family);
+  font-size: var(--lr-ui-font-caption);
+  cursor: pointer;
+  white-space: nowrap;
+  text-align: left;
+  outline: none;
+  gap: 16px;
+}
+
+.lr-context-menu-item:hover:not(:disabled) {
+  background-color: var(
+    --vscode-menu-selectionBackground,
+    var(--vscode-list-hoverBackground, #2a2d2e)
+  );
+  color: var(
+    --vscode-menu-selectionForeground,
+    var(--vscode-menu-foreground, #cccccc)
+  );
+}
+
+.lr-context-menu-item--disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.lr-context-menu-item-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lr-context-menu-item-shortcut {
+  flex-shrink: 0;
+  font-size: var(--lr-ui-font-caption);
+  opacity: 0.6;
+  color: var(--vscode-menu-foreground, #cccccc);
+}
+
+.lr-context-menu-separator {
+  height: 1px;
+  margin: 4px 8px;
+  background-color: var(--vscode-menu-separatorBackground, #454545);
+  opacity: 0.6;
+}

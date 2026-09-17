@@ -1,0 +1,167 @@
+.pretrained-model-form-dialog {
+  width: min(520px, calc(100vw - 32px));
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+  padding: 16px 18px;
+  border: 1px solid var(--vscode-panel-border, #3c3c3c);
+  border-radius: 6px;
+  background: var(--vscode-editor-background, #1e1e1e);
+  color: var(--vscode-foreground, #cccccc);
+}
+
+.pretrained-model-form-title {
+  margin: 0 0 14px;
+  font-size: var(--lr-ui-font-large);
+  font-weight: 600;
+}
+
+.pretrained-model-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.pretrained-model-form-field label,
+.pretrained-model-form-label {
+  font-size: var(--lr-ui-font-meta);
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+}
+
+.pretrained-model-form-field input[type='text'],
+.pretrained-model-form-field input:not([type]),
+.pretrained-model-form-field input[type='number'],
+.pretrained-model-form-field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  border: 1px solid var(--vscode-input-border, #3c3c3c);
+  border-radius: 4px;
+  background: var(--vscode-input-background, #3c3c3c);
+  color: var(--vscode-input-foreground, #cccccc);
+  font-size: var(--lr-ui-font-small);
+}
+
+.pretrained-model-form-field textarea {
+  resize: vertical;
+  min-height: 56px;
+  font-family: inherit;
+}
+
+.pretrained-model-form-field input:focus,
+.pretrained-model-form-field textarea:focus {
+  outline: none;
+  border-color: var(--vscode-focusBorder, #888888);
+}
+.pretrained-model-path-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.pretrained-model-path-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.pretrained-model-form-hint {
+  font-size: var(--lr-ui-font-caption);
+  line-height: 1.45;
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+}
+
+.pretrained-model-type-options {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pretrained-model-type-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--lr-ui-font-small);
+  cursor: pointer;
+}
+
+.pretrained-model-template-options {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pretrained-model-template-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--lr-ui-font-small);
+  cursor: pointer;
+}
+
+.pretrained-model-template-option--muted {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.pretrained-model-form-import-row {
+  gap: 8px;
+}
+
+.pretrained-model-form-advanced {
+  margin-bottom: 12px;
+}
+
+.pretrained-model-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.pretrained-model-form-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--lr-ui-font-caption);
+}
+
+.pretrained-model-form-switches {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.pretrained-model-switch {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--lr-ui-font-small);
+  cursor: pointer;
+}
+
+.pretrained-model-id {
+  padding: 4px 6px;
+  border-radius: 4px;
+  background: var(--vscode-textCodeBlock-background, rgba(10, 10, 10, 0.4));
+  font-size: var(--lr-ui-font-caption);
+}
+
+.pretrained-model-validation-list {
+  margin: 0 0 10px;
+  padding-left: 18px;
+  font-size: var(--lr-ui-font-caption);
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+}
+
+.pretrained-model-form-error {
+  margin: 0 0 10px;
+  font-size: var(--lr-ui-font-meta);
+  color: var(--vscode-errorForeground, #f48771);
+}
+
+.pretrained-model-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}

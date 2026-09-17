@@ -1,0 +1,74 @@
+/* Panel variant: more-labels control (toolbar styles live in ImageAnnotationToolbar.css) */
+
+.annotation-draw-label-picker-measure {
+  position: absolute;
+  visibility: hidden;
+  pointer-events: none;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 6px;
+  height: 0;
+  overflow: hidden;
+}
+
+.annotation-right-label-more-wrap {  position: relative;
+  flex-shrink: 0;
+}
+
+.annotation-right-label-more-btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--vscode-button-border, transparent);
+  border-radius: 4px;
+  background: var(--vscode-button-secondaryBackground, #3a3d41);
+  color: var(--vscode-button-secondaryForeground, #cccccc);
+  cursor: pointer;
+  opacity: 0.85;
+  transition:
+    opacity var(--annotation-motion-duration) var(--annotation-motion-ease),
+    box-shadow var(--annotation-motion-duration) var(--annotation-motion-ease);
+}
+
+.annotation-right-label-more-btn:hover {
+  opacity: 1;
+}
+
+.annotation-right-label-more-btn--open {
+  opacity: 1;
+  box-shadow: none;
+  background: var(--vscode-toolbar-activeBackground, rgba(99, 102, 103, 0.31));
+}
+
+.annotation-right-label-more-btn .codicon {
+  font-size: 16px;
+}
+
+.annotation-right-label-more-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 120px;
+  max-width: 220px;
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 4px;
+  border: 1px solid var(--vscode-menu-border, #454545);
+  border-radius: 4px;
+  background: var(--vscode-menu-background, #252526);
+  box-shadow: 0 4px 12px var(--lr-menu-shadow, rgba(0, 0, 0, 0.4));
+}
+
+.annotation-right-label-btn--menu {
+  width: 100%;
+  text-align: left;
+}

@@ -1,0 +1,27 @@
+.quality-report-preview {
+  margin-top: 8px;
+  padding: 10px;
+  border: 1px solid var(--vscode-panel-border, #3e3e42);
+  border-radius: 4px;
+  max-height: 360px;
+  overflow: auto;
+}
+
+.quality-report-preview__img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 8px 0;
+}
+
+.quality-report-preview__img-loading,
+.quality-report-preview__img-failed {
+  display: block;
+  font-size: var(--lr-ui-font-caption);
+  color: var(--vscode-descriptionForeground, #858585);
+  margin: 8px 0;
+}
+
+.quality-report-preview__img-failed {
+  color: var(--vscode-errorForeground, #f48771);
+}

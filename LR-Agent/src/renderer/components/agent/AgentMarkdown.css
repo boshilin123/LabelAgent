@@ -1,0 +1,83 @@
+.agent-markdown {
+  font-size: var(--agent-font-body);
+  line-height: 1.6;
+  color: var(--vscode-foreground, #cccccc);
+  word-break: break-word;
+}
+
+.agent-markdown p {
+  margin: 0 0 0.75em;
+}
+
+.agent-markdown p:last-child {
+  margin-bottom: 0;
+}
+
+.agent-markdown .agent-scrollable-pre {
+  margin: 0.5em 0;
+}
+
+.agent-markdown .agent-scrollable-pre__viewport {
+  padding: 10px 12px;
+  background: var(--vscode-textCodeBlock-background, #1e1e1e);
+  border: 1px solid var(--vscode-panel-border, #3c3c3c);
+}
+
+.agent-markdown .agent-scrollable-pre__code code.hljs {
+  display: block;
+  background: transparent !important;
+  padding: 0;
+}
+
+.agent-markdown code {
+  font-family: var(--vscode-editor-font-family, Consolas, monospace);
+  font-size: var(--agent-font-code);
+}
+
+.agent-markdown :not(pre) > code {
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: rgba(128, 128, 128, 0.2);
+}
+
+.agent-markdown blockquote {
+  margin: 0.5em 0;
+  padding-left: 10px;
+  border-left: 3px solid var(--vscode-textBlockQuote-border, #007acc);
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+}
+
+.agent-markdown ul {
+  margin: 0.5em 0;
+  padding-left: 1.25em;
+}
+
+.agent-markdown ol {
+  margin: 0.5em 0;
+  padding-left: 2.5em;
+}
+
+.agent-markdown .katex-display {
+  margin: 0.75em 0;
+  overflow-x: auto;
+}
+
+.agent-markdown table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.75em 0;
+}
+
+.agent-markdown th,
+.agent-markdown td {
+  border: 1px solid var(--vscode-panel-border, #3e3e42);
+  padding: 8px 12px;
+  text-align: left;
+  vertical-align: top;
+  word-break: normal;
+}
+
+.agent-markdown th {
+  background: var(--lr-viewer-table-header-background, #2d2d2d);
+  font-weight: 600;
+}

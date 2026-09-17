@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html spellcheck="false">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="<%= cspContent %>"
+    />
+    <title>LR-Agent</title>
+    <!-- 主题引导脚本由 webpack 注入，内容与 CSP sha256 同源（见 .erb/configs/rendererCsp.ts） -->
+    <script><%= themeInitScript %></script>
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>

@@ -1,0 +1,199 @@
+.activity-bar {
+  width: 48px;
+  flex-shrink: 0;
+  align-self: stretch;
+  background: var(--vscode-activityBar-background, #333333);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 0;
+}
+
+.activity-bar-left {
+  justify-content: space-between;
+  min-height: 100%;
+}
+
+.activity-bar-top,
+.activity-bar-bottom {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+}
+
+.activity-icon-wrap {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: 6px;
+  color: var(--vscode-activityBar-inactiveForeground, #858585);
+}
+
+.activity-icon-wrap vscode-icon {
+  display: block;
+  line-height: 0;
+  --vscode-toolbar-hoverBackground: transparent;
+  --vscode-toolbar-activeBackground: transparent;
+}
+
+.activity-icon-active vscode-icon {
+  color: var(--vscode-activityBar-foreground, #ffffff);
+}
+
+.activity-icon-wrap.activity-icon-active,
+.activity-avatar-btn.activity-icon-active {
+  background: var(--vscode-toolbar-activeBackground, rgba(99, 102, 103, 0.31));
+}
+
+.activity-icon-wrap:hover:not(.activity-icon-active):not(:disabled) {
+  color: var(--vscode-activityBar-foreground, #ffffff);
+  background: var(--vscode-toolbar-hoverBackground, rgba(90, 93, 94, 0.31));
+}
+
+.activity-avatar-btn {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.activity-avatar-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--vscode-panel-border, #3c3c3c);
+  background: var(--vscode-input-background, #3c3c3c);
+  color: var(--vscode-activityBar-inactiveForeground, #858585);
+  font-size: 18px;
+}
+
+.activity-offline-dot {
+  position: absolute;
+  right: 9px;
+  bottom: 9px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--vscode-notificationsWarningIcon-foreground, #cca700);
+  border: 1.5px solid var(--vscode-activityBar-background, #333);
+  pointer-events: none;
+}
+
+.activity-theme-toggle {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--vscode-activityBar-inactiveForeground, #858585);
+  border-radius: 6px;
+}
+
+.activity-theme-toggle:hover {
+  color: var(--vscode-activityBar-foreground, #ffffff);
+  background: var(--vscode-toolbar-hoverBackground, rgba(90, 93, 94, 0.31));
+}
+
+.activity-theme-toggle:active {
+  transform: scale(0.94);
+}
+
+.activity-theme-toggle-icon {
+  display: block;
+  flex-shrink: 0;
+  line-height: 0;
+  transition:
+    transform 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+    color 0.2s ease;
+}
+
+.activity-theme-toggle:hover .activity-theme-toggle-icon {
+  transform: rotate(-12deg) scale(1.06);
+}
+
+.activity-work-mode-toggle {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--vscode-activityBar-inactiveForeground, #858585);
+  border-radius: 6px;
+}
+
+.activity-work-mode-toggle:hover {
+  color: var(--vscode-activityBar-foreground, #ffffff);
+  background: var(--vscode-toolbar-hoverBackground, rgba(90, 93, 94, 0.31));
+}
+
+.activity-work-mode-toggle--active {
+  color: var(--vscode-activityBar-foreground, #ffffff);
+  background: var(--vscode-toolbar-activeBackground, rgba(99, 102, 103, 0.31));
+}
+
+.activity-work-mode-toggle:active {
+  transform: scale(0.94);
+}
+
+.activity-work-mode-toggle-icon {
+  display: block;
+  flex-shrink: 0;
+  line-height: 0;
+  transition:
+    transform 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+    color 0.2s ease;
+}
+
+.activity-work-mode-toggle-icon vscode-icon {
+  display: block;
+  line-height: 0;
+  --vscode-toolbar-hoverBackground: transparent;
+  --vscode-toolbar-activeBackground: transparent;
+}
+
+.activity-work-mode-toggle:hover .activity-work-mode-toggle-icon {
+  transform: scale(1.06);
+}
+
+.activity-icon-wrap.activity-icon-disabled,
+.activity-icon-wrap:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.activity-icon-wrap.activity-icon-disabled vscode-icon {
+  color: var(--vscode-activityBar-inactiveForeground, #858585);
+}

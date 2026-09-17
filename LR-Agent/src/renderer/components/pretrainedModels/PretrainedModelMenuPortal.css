@@ -1,0 +1,15 @@
+.pretrained-model-menu-portal {
+  position: fixed;
+  z-index: 1200;
+  min-width: 140px;
+  margin: 0;
+  transform-origin: top right;
+}
+
+.pretrained-model-menu-portal.pretrained-model-menu-open-up {
+  transform-origin: bottom right;
+}
+
+.pretrained-model-menu-portal[style*='visibility: hidden'] {
+  pointer-events: none;
+}

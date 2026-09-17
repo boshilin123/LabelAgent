@@ -1,0 +1,148 @@
+.quick-inference-root {
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--lr-agent-panel-background);
+  font-size: var(--vscode-font-size, 15px);
+}
+
+.quick-inference-scroll {
+  flex: 1;
+  min-height: 0;
+}
+
+.quick-inference-scroll-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 12px;
+  box-sizing: border-box;
+}
+
+.quick-inference-section {
+  margin-bottom: 16px;
+}
+
+.quick-inference-section:last-child {
+  margin-bottom: 0;
+}
+
+.quick-inference-heading {
+  margin: 0 0 8px;
+  font-size: var(--lr-ui-font-meta);
+  font-weight: 600;
+  color: var(--vscode-foreground, #cccccc);
+}
+
+.quick-inference-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.quick-inference-meta-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+.quick-inference-meta-label {
+  flex-shrink: 0;
+  font-size: var(--lr-ui-font-meta);
+  color: var(--vscode-descriptionForeground, #858585);
+}
+
+.quick-inference-meta-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--lr-ui-font-small);
+}
+
+.quick-inference-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.quick-inference-generate-btn {
+  align-self: flex-start;
+}
+
+.quick-inference-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+}
+
+.quick-inference-progress vscode-progress-ring {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.quick-inference-progress-text {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--lr-ui-font-meta);
+  line-height: 1;
+  color: var(--vscode-descriptionForeground, #858585);
+}
+
+.quick-inference-cancel-btn {
+  flex-shrink: 0;
+}
+
+.quick-inference-error {
+  margin: 0;
+  font-size: var(--lr-ui-font-meta);
+  color: var(--vscode-errorForeground, #f48771);
+}
+
+.quick-inference-muted {
+  margin: 0;
+  font-size: var(--lr-ui-font-meta);
+  line-height: 1.45;
+  color: var(--vscode-descriptionForeground, #858585);
+}
+
+.quick-inference-pipeline {
+  margin-bottom: 12px;
+}
+
+.quick-inference-summary {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 4px;
+  border: 1px solid var(--vscode-widget-border, #3e3e42);
+  background: rgba(128, 128, 128, 0.06);
+  font-size: var(--lr-ui-font-meta);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  color: var(--vscode-descriptionForeground, #858585);
+}
+
+.quick-inference-proposal .agent-annotation-change-block {
+  border: 1px solid var(--vscode-widget-border, #3e3e42);
+  border-radius: 4px;
+}
+
+.quick-inference-apply-bar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--vscode-editorGroupHeader-tabsBorder, #3e3e42);
+  background: var(--lr-agent-panel-background);
+}
+
+.quick-inference-apply-btn {
+  flex-shrink: 0;
+}

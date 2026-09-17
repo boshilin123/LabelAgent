@@ -1,0 +1,16 @@
+.highlighted-code-block {
+  margin: 0;
+  padding: 16px;
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: var(--vscode-font-size, 15px);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  background: var(--vscode-editor-background, #1e1e1e);
+  color: var(--vscode-editor-foreground, #d4d4d4);
+}
+
+.highlighted-code-block code {
+  font-family: inherit;
+  font-size: inherit;
+}

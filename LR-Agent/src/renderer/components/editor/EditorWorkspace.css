@@ -1,0 +1,118 @@
+.editor-workspace {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+}
+
+.editor-workspace-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.editor-workspace-pane {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.editor-workspace-tab-pane {
+  display: none;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.editor-workspace-tab-pane--active {
+  display: flex;
+}
+
+.editor-workspace-tab-pane .file-viewer,
+.editor-workspace-tab-pane .monaco-text-editor,
+.editor-workspace-tab-pane .editor-pane,
+.editor-workspace-tab-pane .editor-pane-loading {
+  flex: 1;
+  min-height: 0;
+}
+
+.editor-workspace-empty {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--vscode-descriptionForeground, #858585);
+}
+
+.shared-monaco-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition: opacity 0.18s ease;
+}
+
+/* 预览期间编辑器实例保持挂载但隐藏，切回时无重初始化 */
+.shared-monaco-host {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.shared-monaco-host--hidden {
+  visibility: hidden;
+}
+
+.shared-monaco-layer--hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.shared-monaco-layer .agent-preview-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-shrink: 0;
+  padding: 6px 12px;
+  font-size: var(--lr-ui-font-caption);
+  line-height: 1.4;
+  color: var(--vscode-foreground, #cccccc);
+  background: rgba(88, 166, 255, 0.12);
+  border-bottom: 1px solid rgba(88, 166, 255, 0.24);
+}
+
+.shared-monaco-layer .editor-workspace__diff-toggle {
+  flex-shrink: 0;
+  padding: 1px 8px;
+  font-size: var(--lr-ui-font-caption);
+  color: var(--vscode-foreground, #cccccc);
+  background: transparent;
+  border: 1px solid rgba(88, 166, 255, 0.4);
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.shared-monaco-layer .editor-workspace__diff-toggle:hover {
+  background: rgba(88, 166, 255, 0.16);
+}
+
+.shared-monaco-layer .agent-preview-banner--delete {
+  background: rgba(248, 81, 73, 0.12);
+  border-bottom-color: rgba(248, 81, 73, 0.28);
+}

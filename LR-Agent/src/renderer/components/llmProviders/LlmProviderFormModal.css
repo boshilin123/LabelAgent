@@ -1,0 +1,56 @@
+.llm-provider-form-dialog {
+  width: min(480px, 92vw);
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+  padding: 16px 18px;
+  border: 1px solid var(--vscode-panel-border, #3c3c3c);
+  border-radius: 6px;
+  background: var(--vscode-editor-background, #1e1e1e);
+  color: var(--vscode-foreground, #cccccc);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+}
+
+.llm-provider-form-dialog h3 {
+  margin: 0 0 16px;
+  font-size: var(--lr-ui-font-large);
+}
+
+.llm-provider-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+  font-size: var(--lr-ui-font-caption);
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+}
+
+.llm-provider-field input {
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--vscode-input-border, #3c3c3c);
+  background: var(--vscode-input-background, #3c3c3c);
+  color: var(--vscode-input-foreground, #cccccc);
+  font-size: var(--lr-ui-font-meta);
+}
+
+.llm-provider-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  font-size: var(--lr-ui-font-meta);
+  color: var(--vscode-foreground, #cccccc);
+}
+
+.llm-provider-error {
+  margin-bottom: 12px;
+  font-size: var(--lr-ui-font-caption);
+  color: var(--vscode-errorForeground, #f48771);
+}
+
+.llm-provider-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+}

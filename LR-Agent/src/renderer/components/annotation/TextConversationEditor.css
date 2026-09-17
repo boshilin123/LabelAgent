@@ -1,0 +1,47 @@
+.text-conv-turn-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.text-conv-turn {
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 6px;
+  padding: 8px;
+  background: var(--vscode-sideBar-background);
+}
+
+.text-conv-turn--user {
+  border-left: 3px solid var(--vscode-charts-blue, var(--vscode-focusBorder));
+}
+
+.text-conv-turn--assistant {
+  border-left: 3px solid var(--vscode-charts-green, var(--vscode-testing-iconPassed));
+}
+
+.text-conv-turn-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.text-conv-role-select {
+  padding: 2px 6px;
+  font-size: var(--text-annotation-font-label);
+  background: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  border: 1px solid var(--vscode-input-border);
+  border-radius: 3px;
+  font-family: var(--vscode-font-family);
+}
+
+.text-conv-turn-index {
+  font-size: var(--text-annotation-font-meta);
+  color: var(--vscode-descriptionForeground);
+}
+
+.text-conv-add-turn {
+  display: flex;
+  gap: 4px;
+}

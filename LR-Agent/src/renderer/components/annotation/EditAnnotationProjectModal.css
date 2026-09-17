@@ -1,0 +1,156 @@
+.edit-annotation-project-dialog {
+  width: min(560px, calc(100vw - 32px));
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+  padding: 20px;
+  border-radius: 6px;
+  background: var(--vscode-editorWidget-background, #252526);
+  border: 1px solid var(--vscode-widget-border, #454545);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+}
+
+.edit-annotation-project-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.edit-annotation-project-header h3 {
+  margin: 0;
+  font-size: var(--lr-ui-font-large);
+  font-weight: 600;
+  color: var(--vscode-foreground, #cccccc);
+}
+
+.edit-annotation-project-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--vscode-foreground, #cccccc);
+  cursor: pointer;
+}
+
+.edit-annotation-project-close:hover {
+  background: var(--vscode-toolbar-hoverBackground, rgba(90, 93, 94, 0.31));
+}
+
+.edit-annotation-project-error {
+  margin-bottom: 12px;
+  padding: 8px 10px;
+  border-radius: 4px;
+  background: rgba(244, 67, 54, 0.12);
+  color: #ff8a80;
+  font-size: var(--lr-ui-font-caption);
+}
+
+.edit-annotation-project-readonly {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding: 10px 12px;
+  border-radius: 4px;
+  background: var(--vscode-input-background, #3c3c3c);
+}
+
+.edit-annotation-project-readonly-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.edit-annotation-project-readonly-label {
+  font-size: var(--lr-ui-font-caption);
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+}
+
+.edit-annotation-project-readonly-value {
+  font-size: var(--lr-ui-font-caption);
+  color: var(--vscode-foreground, #cccccc);
+  word-break: break-all;
+}
+
+.edit-annotation-project-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.edit-annotation-project-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.edit-annotation-project-label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: var(--lr-ui-font-caption);
+  font-weight: 600;
+  color: var(--vscode-foreground, #cccccc);
+}
+
+.edit-annotation-project-label .required {
+  color: #ff8a80;
+}
+
+.edit-annotation-project-label input,
+.edit-annotation-project-label textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  border: 1px solid var(--vscode-input-border, #3c3c3c);
+  border-radius: 2px;
+  background: var(--vscode-input-background, #3c3c3c);
+  color: var(--vscode-input-foreground, #cccccc);
+  font-size: var(--lr-ui-font-meta);
+  font-family: inherit;
+  font-weight: normal;
+}
+
+.edit-annotation-project-label textarea {
+  resize: vertical;
+  min-height: 72px;
+}
+
+.edit-annotation-project-label input:focus,
+.edit-annotation-project-label textarea:focus {
+  outline: 1px solid var(--vscode-focusBorder, #007fd4);
+  border-color: var(--vscode-focusBorder, #007fd4);
+}
+
+.edit-annotation-project-memory-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--vscode-panel-border, #3c3c3c);
+  border-radius: 6px;
+  background: var(--vscode-input-background, #3c3c3c);
+  color: var(--vscode-foreground, #cccccc);
+  font-size: var(--lr-ui-font-caption);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.edit-annotation-project-memory-link:hover {
+  border-color: var(--vscode-focusBorder, #007fd4);
+  background: var(--vscode-list-hoverBackground, rgba(90, 93, 94, 0.31));
+}
+
+.edit-annotation-project-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}

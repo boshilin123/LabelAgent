@@ -1,0 +1,187 @@
+@import './textAnnotationScroll.css';
+
+.text-classification-editor {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--vscode-editor-background);
+}
+
+.text-classification-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 12px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.text-classification-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+  flex-shrink: 0;
+  background: var(--vscode-editor-background);
+}
+
+.text-classification-file-path {
+  font-size: var(--text-annotation-font-ui);
+  color: var(--vscode-descriptionForeground);
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.text-classification-stats {
+  font-size: var(--text-annotation-font-ui);
+  color: var(--vscode-badge-foreground);
+  background: var(--vscode-badge-background);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.text-classification-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.text-classification-text-panel {
+  flex: 1;
+  border-right: 1px solid var(--vscode-panel-border);
+  overflow: hidden;
+  background: var(--vscode-editor-background);
+}
+
+.text-classification-text-scroll {
+  height: 100%;
+  overflow: auto;
+  padding: 16px;
+}
+
+.text-classification-text-content {
+  font-size: var(--text-annotation-font-body);
+  line-height: 1.7;
+  color: var(--vscode-editor-foreground);
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0;
+  font-family: var(--vscode-editor-font-family);
+}
+
+.text-classification-labels-panel {
+  width: 280px;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+  flex-shrink: 0;
+  background: var(--vscode-editor-background);
+}
+
+.text-classification-section {
+  padding: 12px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+}
+
+.text-classification-heading {
+  margin: 0 0 8px 0;
+  font-size: var(--text-annotation-font-body);
+  font-weight: 600;
+  color: var(--vscode-foreground);
+}
+
+.text-classification-muted {
+  font-size: var(--text-annotation-font-ui);
+  color: var(--vscode-descriptionForeground);
+  font-style: italic;
+  margin: 0;
+}
+
+.text-classification-assigned-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.text-classification-assigned-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  background: var(--vscode-list-hoverBackground);
+  border-radius: 4px;
+}
+
+.text-classification-index {
+  font-size: var(--text-annotation-font-label);
+  color: var(--vscode-descriptionForeground);
+  min-width: 24px;
+}
+
+.text-classification-chip {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-size: var(--text-annotation-font-ui);
+  font-weight: 500;
+  color: #fff;
+}
+
+.text-classification-unknown {
+  font-size: var(--text-annotation-font-ui);
+  color: var(--vscode-descriptionForeground);
+  font-style: italic;
+}
+
+.text-classification-assigned-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.text-classification-label-select {
+  padding: 2px 4px;
+  font-size: var(--text-annotation-font-label);
+  background: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  border: 1px solid var(--vscode-input-border);
+  border-radius: 3px;
+  font-family: var(--vscode-font-family);
+}
+
+.text-classification-available-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.text-classification-label-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: transparent;
+  border: 1px solid var(--label-color);
+  border-radius: 4px;
+  color: var(--vscode-foreground);
+  font-size: var(--text-annotation-font-ui);
+  font-family: var(--vscode-font-family);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.text-classification-label-btn:hover {
+  background: color-mix(in srgb, var(--label-color) 15%, transparent);
+}
+
+.text-classification-label-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}

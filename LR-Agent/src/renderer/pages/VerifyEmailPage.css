@@ -1,0 +1,51 @@
+.verify-email-page {
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: var(--vscode-editor-background, #1e1e1e);
+  color: var(--vscode-foreground, #cccccc);
+}
+
+.verify-email-card {
+  width: min(420px, 100%);
+  padding: 28px;
+  border-radius: 8px;
+  border: 1px solid var(--vscode-panel-border, #3c3c3c);
+  background: var(--vscode-sideBar-background, #252526);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+  text-align: center;
+}
+
+.verify-email-title {
+  margin: 0 0 12px;
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.verify-email-title-success {
+  color: #4ec9b0;
+}
+
+.verify-email-title-error,
+.verify-email-title-missing {
+  color: #f48771;
+}
+
+.verify-email-title-loading {
+  color: var(--vscode-foreground, #cccccc);
+}
+
+.verify-email-message {
+  margin: 0;
+  font-size: var(--vscode-font-size);
+  line-height: 1.6;
+}
+
+.verify-email-hint {
+  margin: 16px 0 0;
+  font-size: var(--lr-ui-font-caption);
+  line-height: 1.5;
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+}

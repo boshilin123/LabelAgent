@@ -1,0 +1,124 @@
+.agent-composer {
+  flex-shrink: 0;
+  padding: 12px 30px 8px;
+  background: var(--lr-agent-panel-background);
+}
+
+.agent-composer-form {
+  margin: 0;
+}
+
+.agent-composer-box {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 10px 6px;
+  border-radius: 10px;
+  border: 1px solid var(--vscode-input-border, #3e3e42);
+  background: var(--vscode-input-background, #3c3c3c);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.agent-composer-box:focus-within {
+  border-color: var(--vscode-input-border, #3e3e42);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.agent-composer-input {
+  width: 100%;
+  min-height: 36px;
+  max-height: 160px;
+  overflow-y: auto;
+  resize: none;
+  padding: 2px 2px 0 4px;
+  border: none;
+  background: transparent;
+  color: var(--vscode-input-foreground, #cccccc);
+  font-family: inherit;
+  font-size: var(--agent-font-body);
+  line-height: 1.55;
+}
+
+.agent-composer-input:focus {
+  outline: none;
+}
+
+.agent-composer-input::placeholder {
+  color: var(--vscode-input-placeholderForeground, #8a8a8a);
+}
+
+.agent-composer-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 28px;
+}
+
+.agent-composer-footer-left {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.agent-composer-send {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: rgba(128, 128, 128, 0.28);
+  color: rgba(255, 255, 255, 0.45);
+  cursor: not-allowed;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    transform 0.1s ease;
+}
+
+.agent-composer-send .codicon {
+  font-size: var(--agent-font-large);
+}
+
+.agent-composer-send--ready {
+  background: #f3f3f3;
+  color: #1f1f1f;
+  cursor: pointer;
+}
+
+.agent-composer-send--ready:hover {
+  background: #ffffff;
+}
+
+.agent-composer-send--stop {
+  background: rgba(244, 135, 113, 0.18);
+  color: var(--vscode-errorForeground, #f48771);
+  cursor: pointer;
+}
+
+.agent-composer-send--stop:hover {
+  background: rgba(244, 135, 113, 0.28);
+}
+
+.agent-composer-send:disabled {
+  pointer-events: none;
+}
+
+[data-theme='light'] .agent-composer-box,
+[data-theme='light'] .agent-composer-box:focus-within {
+  box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.04);
+}
+
+[data-theme='light'] .agent-composer-send:not(.agent-composer-send--ready):not(
+    .agent-composer-send--stop
+  ) {
+  color: rgba(0, 0, 0, 0.35);
+}

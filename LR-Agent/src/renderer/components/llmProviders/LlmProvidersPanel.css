@@ -1,0 +1,119 @@
+.llm-providers-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  font-size: var(--vscode-font-size);
+}
+
+.llm-providers-toolbar {
+  flex-shrink: 0;
+  padding: 4px 6px;
+}
+
+.llm-providers-toolbar vscode-toolbar-button:focus:not(:focus-visible) {
+  --vscode-focusBorder: transparent;
+}
+
+.llm-providers-scroll-host {
+  flex: 1;
+  min-height: 0;
+}
+
+.llm-section {
+  padding: 4px 0 12px;
+}
+
+.llm-section-title {
+  margin: 8px 12px 4px;
+  font-size: var(--lr-ui-font-meta, 11px);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+}
+
+.llm-aux-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px 12px;
+  border-bottom: 1px solid var(--vscode-panel-border, #3c3c3c);
+}
+
+.llm-aux-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: rgba(78, 201, 176, 0.16);
+  color: #4ec9b0;
+}
+
+.llm-aux-main {
+  min-width: 0;
+  flex: 1;
+}
+
+.llm-aux-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.llm-aux-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.llm-aux-desc {
+  margin: 4px 0 8px;
+  font-size: var(--lr-ui-font-meta, 11px);
+  line-height: 1.5;
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+}
+
+.llm-aux-select {
+  --dropdown-z-index: 5000;
+  --vscode-focusBorder: var(--vscode-input-border, #3e3e42);
+  --vscode-list-focusOutline: var(--vscode-panel-border, #3e3e42);
+  --vscode-list-activeSelectionBackground: var(
+    --vscode-list-hoverBackground,
+    #2a2d2e
+  );
+  --vscode-list-activeSelectionForeground: var(--vscode-foreground, #cccccc);
+  width: 100%;
+  max-width: 100%;
+  font-size: var(--lr-ui-font-caption);
+}
+
+.llm-provider-delete-dialog {
+  width: min(420px, 92vw);
+  padding: 16px 18px;
+  border: 1px solid var(--vscode-panel-border, #3c3c3c);
+  border-radius: 6px;
+  background: var(--vscode-editor-background, #1e1e1e);
+  color: var(--vscode-foreground, #cccccc);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+}
+
+.llm-provider-delete-dialog h3 {
+  margin: 0 0 12px;
+}
+
+.llm-provider-delete-dialog p {
+  margin: 0 0 16px;
+  font-size: var(--lr-ui-font-meta);
+  line-height: 1.5;
+}
+
+.llm-provider-delete-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}

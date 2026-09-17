@@ -1,0 +1,25 @@
+.monaco-text-editor {
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.monaco-text-editor-container {
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+}
+
+.monaco-text-editor-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--vscode-editor-background, #1e1e1e);
+  color: var(--vscode-descriptionForeground, #858585);
+  pointer-events: none;
+}

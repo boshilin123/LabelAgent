@@ -1,0 +1,22 @@
+@import './AgentChangeBlock.shared.css';
+
+.agent-file-change-block__body {
+  --agent-change-block-fade-to: var(
+    --vscode-editor-background,
+    rgba(0, 0, 0, 0.15)
+  );
+}
+
+/* diff 渲染统一由 MonacoDiffView（Monaco DiffEditor）承担 */
+
+/* 收起后保持 DiffEditor 挂载（隐藏不销毁），再次展开零开销 */
+.agent-file-change-block__body--hidden {
+  display: none;
+}
+
+.agent-file-change-block__loading,
+.agent-file-change-block__delete-note {
+  padding: 4px 0;
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+  font-size: var(--agent-font-small);
+}

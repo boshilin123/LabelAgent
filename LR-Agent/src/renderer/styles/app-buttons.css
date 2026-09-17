@@ -1,0 +1,107 @@
+/**
+ * 应用内按钮（原生 .app-btn 与 @vscode-elements 的 vscode-button），跟随 vscode-theme 的 dark/light token。
+ * 统一细腻微动效：颜色平滑过渡 + 悬停轻微上浮 + 按压缩放；位移/缩放在「减少动态效果」时禁用。
+ */
+.app-btn {
+  appearance: none;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: var(--vscode-font-size);
+  font-family: inherit;
+  line-height: 1.4;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.12s ease,
+    opacity 0.2s ease;
+}
+
+.app-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.app-btn-primary {
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+}
+
+.app-btn-primary:hover:not(:disabled) {
+  background: var(--vscode-button-hoverBackground);
+}
+
+.app-btn-secondary {
+  background: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
+  border-color: transparent;
+}
+
+.app-btn-secondary:hover:not(:disabled) {
+  background: var(--vscode-button-secondaryHoverBackground);
+}
+
+.app-btn-danger {
+  background: var(--lr-danger-bg);
+  color: var(--lr-danger-fg);
+  border-color: var(--lr-danger-border);
+}
+
+.app-btn-danger:hover:not(:disabled) {
+  background: var(--lr-danger-hover-bg);
+}
+
+vscode-button.vscode-btn-danger {
+  color: var(--lr-danger-fg);
+}
+
+vscode-button.vscode-btn-danger::part(base) {
+  background: var(--lr-danger-bg);
+  color: var(--lr-danger-fg);
+  border-color: var(--lr-danger-border);
+}
+
+vscode-button.vscode-btn-danger:hover:not([disabled])::part(base),
+vscode-button.vscode-btn-danger:focus-visible::part(base),
+vscode-button.vscode-btn-danger:active:not([disabled])::part(base) {
+  background: var(--lr-danger-hover-bg);
+  color: var(--lr-danger-fg);
+  border-color: var(--lr-danger-border);
+}
+
+/**
+ * vscode-button 是 shadow DOM web 组件：宿主元素做位移/缩放，
+ * 内部 .base（暴露为 part="base"）负责平滑 shadow 里的换色过渡。
+ */
+vscode-button {
+  transition:
+    transform 0.12s ease,
+    opacity 0.2s ease;
+}
+
+vscode-button::part(base) {
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .app-btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+  }
+
+  .app-btn:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+
+  vscode-button:not([disabled]):hover {
+    transform: translateY(-1px);
+  }
+
+  vscode-button:not([disabled]):active {
+    transform: scale(0.97);
+  }
+}

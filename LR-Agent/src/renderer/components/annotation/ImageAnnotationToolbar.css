@@ -1,0 +1,157 @@
+.image-annotation-toolbar {
+  box-sizing: border-box;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  background: var(--vscode-editor-background, #1e1e1e);
+  border-bottom: 1px solid var(--vscode-editorGroup-border, #3e3e42);
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+  overflow: visible;
+}
+
+.image-annotation-tool-group {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.image-annotation-toolbar-divider {
+  width: 1px;
+  align-self: stretch;
+  min-height: 24px;
+  margin: 0 2px;
+  background: var(--vscode-editorGroup-border, #3e3e42);
+}
+
+/* 鼠标点击后的 focus 不显示黄色 outline；键盘 focus-visible 仍保留 */
+.image-annotation-toolbar vscode-button:focus:not(:focus-visible) {
+  --vscode-focusBorder: transparent;
+}
+
+.image-annotation-tool-btn {
+  transition:
+    background-color var(--annotation-motion-duration) var(--annotation-motion-ease),
+    box-shadow var(--annotation-motion-duration) var(--annotation-motion-ease),
+    opacity var(--annotation-motion-duration) var(--annotation-motion-ease);
+}
+
+.image-annotation-tool-btn--active {
+  --vscode-button-secondaryBackground: color-mix(
+    in srgb,
+    var(--vscode-foreground) 16%,
+    transparent
+  );
+  --vscode-button-secondaryHoverBackground: color-mix(
+    in srgb,
+    var(--vscode-foreground) 20%,
+    transparent
+  );
+  --vscode-focusBorder: transparent;
+}
+
+.image-annotation-toolbar-labels {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  flex-wrap: nowrap;
+}
+
+.image-annotation-toolbar-empty {
+  font-size: var(--lr-ui-font-caption);
+  color: var(--vscode-descriptionForeground, #858585);
+}
+
+.image-annotation-toolbar-hint {
+  font-size: var(--lr-ui-font-caption);
+  font-weight: 500;
+  color: var(--vscode-descriptionForeground, #cccccc);
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+
+.image-annotation-toolbar-chips {
+  position: relative;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  padding: 2px 0;
+  overflow: visible;
+}
+
+.image-annotation-toolbar-chip {
+  appearance: none;
+  flex-shrink: 0;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: var(--lr-ui-font-caption);
+  cursor: pointer;
+  white-space: nowrap;
+  opacity: 0.75;
+  transition:
+    opacity var(--annotation-motion-duration) var(--annotation-motion-ease),
+    box-shadow var(--annotation-motion-duration) var(--annotation-motion-ease);
+}
+
+.image-annotation-toolbar-chip:hover {
+  opacity: 0.95;
+}
+
+.image-annotation-toolbar-chip--active {
+  opacity: 1;
+  font-weight: 600;
+  filter: brightness(1.12);
+  box-shadow: inset 0 0 0 1px rgba(128, 128, 128, 0.45);
+}
+
+.image-annotation-toolbar-more-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.image-annotation-toolbar-more-btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--vscode-button-border, transparent);
+  border-radius: 4px;
+  background: var(--vscode-button-secondaryBackground, #3a3d41);
+  color: var(--vscode-button-secondaryForeground, #cccccc);
+  cursor: pointer;
+  opacity: 0.85;
+  transition:
+    opacity var(--annotation-motion-duration) var(--annotation-motion-ease),
+    box-shadow var(--annotation-motion-duration) var(--annotation-motion-ease);
+}
+
+.image-annotation-toolbar-more-btn:hover {
+  opacity: 1;
+}
+
+.image-annotation-toolbar-more-btn--open {
+  opacity: 1;
+  box-shadow: none;
+  background: var(--vscode-toolbar-activeBackground, rgba(99, 102, 103, 0.31));
+}
+
+.image-annotation-toolbar-more-btn .codicon {
+  font-size: 16px;
+}
+
+.image-annotation-toolbar-chip--menu {
+  width: 100%;
+  text-align: left;
+}

@@ -1,0 +1,26 @@
+.text-cot-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.text-cot-step {
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 6px;
+  padding: 8px;
+  border-left: 3px solid var(--vscode-panel-border);
+  background: var(--vscode-editor-background);
+}
+
+.text-cot-step-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.text-cot-step-index {
+  font-size: var(--text-annotation-font-label);
+  font-weight: 600;
+  color: var(--vscode-descriptionForeground);
+}

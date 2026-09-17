@@ -1,0 +1,64 @@
+.overlay-horizontal-scroll-area {
+  position: relative;
+  min-width: 0;
+}
+
+.overlay-horizontal-scroll-area__viewport {
+  position: relative;
+  min-width: 0;
+}
+
+.overlay-horizontal-scroll-area__content {
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.overlay-horizontal-scroll-area__content::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.overlay-horizontal-scroll-area__track {
+  position: absolute;
+  left: var(--agent-overlay-horizontal-scrollbar-inset-x, 12px);
+  right: var(--agent-overlay-horizontal-scrollbar-inset-x, 12px);
+  bottom: var(--agent-overlay-horizontal-scrollbar-inset-y, 8px);
+  height: var(--agent-overlay-horizontal-scrollbar-height, 4px);
+  z-index: 2;
+  pointer-events: none;
+}
+
+.overlay-horizontal-scroll-area__thumb {
+  position: absolute;
+  top: 0;
+  min-width: 32px;
+  height: var(--agent-overlay-horizontal-scrollbar-height, 4px);
+  border-radius: 999px;
+  background: var(--agent-overlay-scrollbar-thumb, rgba(255, 255, 255, 0.22));
+  opacity: 0;
+  cursor: pointer;
+  pointer-events: auto;
+  transition:
+    opacity 0.12s ease,
+    background 0.12s ease;
+}
+
+.overlay-horizontal-scroll-area.is-dragging .overlay-horizontal-scroll-area__thumb {
+  opacity: 1;
+}
+
+.overlay-horizontal-scroll-area.is-hovered .overlay-horizontal-scroll-area__thumb,
+.overlay-horizontal-scroll-area.is-scrolling .overlay-horizontal-scroll-area__thumb {
+  opacity: 1;
+}
+
+.overlay-horizontal-scroll-area.is-hovered .overlay-horizontal-scroll-area__thumb:hover,
+.overlay-horizontal-scroll-area.is-dragging .overlay-horizontal-scroll-area__thumb {
+  background: var(
+    --agent-overlay-scrollbar-thumb-hover,
+    rgba(255, 255, 255, 0.36)
+  );
+}

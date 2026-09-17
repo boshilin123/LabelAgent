@@ -1,0 +1,96 @@
+.sidebar {
+  flex-shrink: 0;
+  align-self: stretch;
+  min-height: 0;
+  height: 100%;
+  background: var(--vscode-sideBar-background, #252526);
+  overflow: hidden;
+  transition: width 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  --agent-overlay-scrollbar-size: 6px;
+  --agent-overlay-scrollbar-inset: 3px;
+  --agent-overlay-scrollbar-thumb: rgba(255, 255, 255, 0.22);
+  --agent-overlay-scrollbar-thumb-hover: rgba(255, 255, 255, 0.36);
+}
+
+[data-theme='light'] .sidebar {
+  --agent-overlay-scrollbar-thumb: rgba(0, 0, 0, 0.18);
+  --agent-overlay-scrollbar-thumb-hover: rgba(0, 0, 0, 0.3);
+}
+
+.sidebar-right {
+  background: var(--lr-agent-panel-background);
+  border-left: 1px solid var(--vscode-editorGroup-border, #3e3e42);
+}
+
+.layout.is-resizing .sidebar,
+.sidebar.is-resizing {
+  transition: none;
+}
+
+.sidebar.collapsed {
+  min-width: 0;
+  pointer-events: none;
+}
+
+.sidebar.collapsed .sidebar-inner {
+  opacity: 0;
+}
+
+.sidebar-inner {
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  width: 100%;
+  min-width: 150px;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.sidebar-no-header .sidebar-inner {
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.sidebar-panel-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  height: 22px;
+  line-height: 22px;
+  padding: 0 8px;
+  margin: 0;
+  font-size: var(--lr-ui-font-caption);
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--vscode-sideBarTitle-foreground, #cccccc);
+  background: var(--vscode-sideBarSectionHeader-background, #181818);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-body {
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-scroll-host {
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-panel-scroll {
+  width: 100%;
+  display: block;
+  box-sizing: border-box;
+}

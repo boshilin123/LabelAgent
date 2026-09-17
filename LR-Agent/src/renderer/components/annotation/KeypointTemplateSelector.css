@@ -1,0 +1,103 @@
+.keypoint-template-selector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  position: relative;
+  overflow: visible;
+}
+
+.keypoint-template-label {
+  font-size: var(--lr-ui-font-caption);
+  color: var(--vscode-descriptionForeground, #858585);
+  white-space: nowrap;
+}
+
+.keypoint-template-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 5px 10px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--vscode-foreground, #cccccc);
+  font-size: var(--lr-ui-font-caption);
+  font-weight: 500;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.keypoint-template-trigger:hover {
+  background: rgba(128, 128, 128, 0.16);
+}
+
+.keypoint-template-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.keypoint-template-chevron {
+  font-size: 11px;
+  opacity: 0.75;
+  flex-shrink: 0;
+  transition: transform 0.15s ease;
+}
+
+.keypoint-template-trigger[aria-expanded='true'] .keypoint-template-chevron {
+  transform: rotate(180deg);
+}
+
+.keypoint-template-menu {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 6px);
+  z-index: 30;
+  min-width: 200px;
+  max-width: 320px;
+  padding: 4px;
+  border-radius: 8px;
+  border: 1px solid var(--vscode-widget-border, #454545);
+  background: var(--vscode-dropdown-background, #3c3c3c);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  transform-origin: bottom left;
+}
+
+.keypoint-template-option {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--vscode-foreground, #cccccc);
+  text-align: left;
+  cursor: pointer;
+}
+
+.keypoint-template-option:hover,
+.keypoint-template-option--active {
+  background: var(--vscode-list-hoverBackground, rgba(128, 128, 128, 0.2));
+}
+
+.keypoint-template-option-name {
+  font-size: var(--lr-ui-font-caption);
+  font-weight: 500;
+}
+
+.keypoint-template-option-desc {
+  font-size: var(--lr-ui-font-caption);
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+  line-height: 1.35;
+}
+
+.keypoint-template-hint {
+  font-size: var(--lr-ui-font-caption);
+  color: var(--vscode-descriptionForeground, #858585);
+}

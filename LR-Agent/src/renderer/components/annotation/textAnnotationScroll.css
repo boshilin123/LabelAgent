@@ -1,0 +1,78 @@
+/* 文本标注中间区：body=14，其余贴地板 caption=13（不再低于 13） */
+:root {
+  --text-annotation-font-body: var(--lr-ui-font-small);
+  --text-annotation-font-source: var(--lr-ui-font-caption);
+  --text-annotation-font-ui: var(--lr-ui-font-caption);
+  --text-annotation-font-label: var(--lr-ui-font-caption);
+  --text-annotation-font-meta: var(--lr-ui-font-caption);
+  --text-annotation-textarea-min-height: calc(
+    var(--text-annotation-font-body) * 1.6 * 3 + 16px
+  );
+  --text-annotation-textarea-max-height: min(320px, 40vh);
+  --text-annotation-textarea-source-min-height: calc(
+    var(--text-annotation-font-source) * 1.55 * 4 + 16px
+  );
+  --text-annotation-textarea-source-max-height: min(360px, 45vh);
+  --text-annotation-textarea-compact-min-height: calc(
+    var(--text-annotation-font-body) * 1.6 * 2 + 16px
+  );
+  --text-annotation-textarea-large-min-height: calc(
+    var(--text-annotation-font-body) * 1.6 * 5 + 16px
+  );
+  --text-annotation-textarea-large-max-height: min(400px, 50vh);
+}
+
+/* 文本标注中间区共享滚动条：透明 track + 细窄 thumb，对齐图片编辑器 */
+.text-annotation-scroll,
+.text-source-preview-scroll,
+.text-lfm-form,
+.text-classification-text-scroll,
+.text-classification-labels-panel {
+  scrollbar-width: thin;
+  scrollbar-color: var(--vscode-scrollbarSlider-background) transparent;
+}
+
+.text-annotation-scroll::-webkit-scrollbar,
+.text-source-preview-scroll::-webkit-scrollbar,
+.text-lfm-form::-webkit-scrollbar,
+.text-classification-text-scroll::-webkit-scrollbar,
+.text-classification-labels-panel::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.text-annotation-scroll::-webkit-scrollbar-track,
+.text-source-preview-scroll::-webkit-scrollbar-track,
+.text-lfm-form::-webkit-scrollbar-track,
+.text-classification-text-scroll::-webkit-scrollbar-track,
+.text-classification-labels-panel::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.text-annotation-scroll::-webkit-scrollbar-thumb,
+.text-source-preview-scroll::-webkit-scrollbar-thumb,
+.text-lfm-form::-webkit-scrollbar-thumb,
+.text-classification-text-scroll::-webkit-scrollbar-thumb,
+.text-classification-labels-panel::-webkit-scrollbar-thumb {
+  background: var(--vscode-scrollbarSlider-background);
+  border-radius: 5px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.text-annotation-scroll::-webkit-scrollbar-thumb:hover,
+.text-source-preview-scroll::-webkit-scrollbar-thumb:hover,
+.text-lfm-form::-webkit-scrollbar-thumb:hover,
+.text-classification-text-scroll::-webkit-scrollbar-thumb:hover,
+.text-classification-labels-panel::-webkit-scrollbar-thumb:hover {
+  background: var(--vscode-scrollbarSlider-hoverBackground);
+  background-clip: padding-box;
+}
+
+.text-annotation-scroll::-webkit-scrollbar-corner,
+.text-source-preview-scroll::-webkit-scrollbar-corner,
+.text-lfm-form::-webkit-scrollbar-corner,
+.text-classification-text-scroll::-webkit-scrollbar-corner,
+.text-classification-labels-panel::-webkit-scrollbar-corner {
+  background: transparent;
+}

@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "projectId": "c1afb015-ee87-4349-9a8a-5cd5d2bf1bbf",
+  "filePath": "IMG_8170.JPG",
+  "modality": "image",
+  "annotationType": "bbox",
+  "source": {
+    "width": 4032,
+    "height": 3024,
+    "mtimeMs": 1787035290000,
+    "size": 2916270
+  },
+  "updatedAt": "2026-09-17T08:30:10.743Z",
+  "annotations": [
+    {
+      "id": "0be11a83-ad98-404e-9582-0dc161a63956",
+      "labelId": null,
+      "createdAt": "2026-09-17T08:15:29.309Z",
+      "updatedAt": "2026-09-17T08:15:29.309Z",
+      "kind": "bbox",
+      "x": 0.3060316661047557,
+      "y": 0.3025820394041677,
+      "width": 0.2758529299781436,
+      "height": 0.3149707733638703
+    },
+    {
+      "id": "f4f85ba0-1ad4-47e2-a3f0-d996defaef21",
+      "kind": "bbox",
+      "labelId": null,
+      "createdAt": "2026-09-17T08:30:10.276Z",
+      "updatedAt": "2026-09-17T08:30:10.276Z",
+      "source": "preannot",
+      "x": 0.3060316661047557,
+      "y": 0.3025820394041677,
+      "width": 0.2758529299781436,
+      "height": 0.3149707733638703
+    }
+  ]
+}

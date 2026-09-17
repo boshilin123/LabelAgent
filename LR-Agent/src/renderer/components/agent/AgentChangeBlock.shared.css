@@ -1,0 +1,121 @@
+:root {
+  --agent-change-block-radius: 8px;
+  --agent-change-block-border: 1px solid rgba(255, 255, 255, 0.1);
+  --agent-change-block-bg: rgba(255, 255, 255, 0.03);
+  --agent-change-block-header-bg: rgba(255, 255, 255, 0.04);
+  --agent-change-block-header-hover: rgba(255, 255, 255, 0.07);
+  --agent-change-block-body-border: 1px solid rgba(255, 255, 255, 0.06);
+  --agent-change-block-font-size: var(--lr-ui-font-meta);
+  --agent-change-block-fade-to: rgba(0, 0, 0, 0.15);
+  --agent-change-block-expand-color: rgba(255, 255, 255, 0.55);
+  --agent-change-block-expand-color-hover: rgba(255, 255, 255, 0.95);
+
+  --agent-surface-border: rgba(255, 255, 255, 0.1);
+  --agent-surface-bg: rgba(255, 255, 255, 0.03);
+  --agent-surface-bg-hover: rgba(255, 255, 255, 0.06);
+  --agent-surface-muted-text: rgba(255, 255, 255, 0.55);
+  --agent-surface-secondary-text: rgba(255, 255, 255, 0.75);
+  --agent-surface-focus-outline: rgba(255, 255, 255, 0.35);
+}
+
+.agent-edit-stats {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  font-weight: 500;
+}
+
+.agent-edit-stats__add {
+  color: #3fb950;
+}
+
+.agent-edit-stats__del {
+  color: #f85149;
+}
+
+[data-theme='light'] {
+  --agent-change-block-border: 1px solid rgba(0, 0, 0, 0.1);
+  --agent-change-block-bg: rgba(0, 0, 0, 0.02);
+  --agent-change-block-header-bg: rgba(0, 0, 0, 0.03);
+  --agent-change-block-header-hover: rgba(0, 0, 0, 0.06);
+  --agent-change-block-body-border: 1px solid rgba(0, 0, 0, 0.06);
+  --agent-change-block-fade-to: rgba(255, 255, 255, 0.92);
+  --agent-change-block-expand-color: rgba(0, 0, 0, 0.45);
+  --agent-change-block-expand-color-hover: rgba(0, 0, 0, 0.85);
+
+  --agent-surface-border: rgba(0, 0, 0, 0.08);
+  --agent-surface-bg: rgba(0, 0, 0, 0.02);
+  --agent-surface-bg-hover: rgba(0, 0, 0, 0.05);
+  --agent-surface-muted-text: rgba(0, 0, 0, 0.45);
+  --agent-surface-secondary-text: rgba(0, 0, 0, 0.65);
+  --agent-surface-focus-outline: rgba(0, 0, 0, 0.25);
+}
+
+.agent-change-block__body-wrap {
+  position: relative;
+}
+
+.agent-change-block__body-wrap--expandable {
+  padding-bottom: 36px;
+}
+
+/* 折叠预览：底部渐变 + 透明 expand 浮层 */
+.agent-change-block__body-wrap--expandable:not(
+    .agent-change-block__body-wrap--full
+  )::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 36px;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    var(--agent-change-block-fade-to)
+  );
+  z-index: 1;
+}
+
+.agent-change-block__expand {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  min-height: 32px;
+  padding: 0 0 4px;
+  border: none;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--agent-change-block-expand-color);
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.agent-change-block__expand:hover,
+.agent-change-block__expand:active,
+.agent-change-block__expand:focus {
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--agent-change-block-expand-color-hover);
+}
+
+.agent-change-block__expand:focus-visible {
+  outline: none;
+}
+
+.agent-change-block__expand:focus-visible vscode-icon {
+  outline: 1px solid var(--agent-surface-focus-outline);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.agent-change-block__expand vscode-icon {
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45));
+}

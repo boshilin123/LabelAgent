@@ -1,0 +1,242 @@
+.layout {
+  --file-header-height: var(--lr-agent-tab-bar-height, 40px);
+  --layout-top-band-height: var(--file-header-height);
+  --layout-body-top-band-height: 0px;
+
+  display: flex;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+.layout--editor-work-mode {
+  --layout-body-top-band-height: 0px;
+}
+
+.layout--file-header-band:not(.layout--image-annotation-toolbar) {
+  --layout-top-band-height: var(--file-header-height);
+  --layout-body-top-band-height: var(--file-header-height);
+}
+
+.layout--image-annotation-toolbar:not(.layout--file-header-band) {
+  --layout-top-band-height: var(--image-annotation-toolbar-height, 44px);
+  --layout-body-top-band-height: var(--image-annotation-toolbar-height, 44px);
+}
+
+.layout--file-header-band.layout--image-annotation-toolbar {
+  --layout-top-band-height: calc(
+    var(--file-header-height) + var(--image-annotation-toolbar-height, 44px)
+  );
+  --layout-body-top-band-height: calc(
+    var(--file-header-height) + var(--image-annotation-toolbar-height, 44px)
+  );
+}
+
+.editor-center {
+  flex: 1;
+  min-width: 480px;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.editor-tab-strip {
+  display: flex;
+  flex-shrink: 0;
+  height: var(--lr-top-toolbar-height, 36px);
+  min-height: var(--lr-top-toolbar-height, 36px);
+  overflow: hidden;
+  border-bottom: 1px solid var(--vscode-editorGroupHeader-tabsBorder, #3e3e42);
+}
+
+.editor-tab-strip-sash {
+  flex-shrink: 0;
+  width: 4px;
+  background: var(--vscode-editorGroupHeader-tabsBackground, #252526);
+}
+
+.editor-tab-strip:has(.editor-tab:first-child.editor-tab--active)
+  .editor-tab-strip-sash {
+  background: var(--vscode-editor-background, #1e1e1e);
+  border-bottom: 1px solid var(--vscode-editor-background, #1e1e1e);
+  margin-bottom: -1px;
+  position: relative;
+  z-index: 1;
+}
+
+.editor-tab-strip:has(.editor-tab:first-child.editor-tab--active)
+  .editor-tab-strip-sash::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--lr-tab-active-border-top, var(--lr-accent-blue));
+  z-index: 2;
+}
+
+.editor-tab-strip-tabs {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  min-height: 0;
+}
+
+.editor-tab-strip-tabs--annotation {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: stretch;
+  background: var(--vscode-editorGroupHeader-tabsBackground, #252526);
+}
+
+.editor-tab-strip-tabs--annotation .editor-tab-bar-scroller {
+  grid-column: 1;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+}
+
+.editor-tab-strip-tabs--annotation .editor-file-sibling-nav {
+  grid-column: 2;
+  justify-self: center;
+  align-self: center;
+}
+
+.editor-tab-strip-spacer {
+  grid-column: 3;
+}
+
+.editor-tab-strip-fill {
+  flex: 1;
+  min-width: 0;
+  background: var(--vscode-editorGroupHeader-tabsBackground, #252526);
+}
+
+.editor-tab-strip .editor-tab-bar-scroller {
+  flex: 1;
+  min-width: 0;
+  border-bottom: none;
+}
+
+.editor-center-body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: row;
+  overflow: hidden;
+}
+
+.layout--editor-top-band .editor-center-body::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--layout-body-top-band-height);
+  background: var(--vscode-editorGroupHeader-tabsBackground, #252526);
+  z-index: 0;
+  pointer-events: none;
+}
+
+.layout--editor-top-band .editor-center-body > * {
+  position: relative;
+  z-index: 1;
+}
+
+.layout--image-annotation-toolbar.layout--editor-top-band
+  .editor-center-body::before {
+  background: var(--vscode-editor-background, #1e1e1e);
+}
+
+.layout--image-annotation-toolbar.layout--editor-top-band .resizer-left {
+  background: linear-gradient(
+    to bottom,
+    var(--vscode-editor-background, #1e1e1e) 0,
+    var(--vscode-editor-background, #1e1e1e)
+      var(--layout-body-top-band-height),
+    var(--vscode-editor-background, #1e1e1e)
+      var(--layout-body-top-band-height)
+  );
+}
+
+.main-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--vscode-editor-background, #1e1e1e);
+  overflow: hidden;
+}
+
+.main-content-body {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.resizer {
+  position: relative;
+  width: 4px;
+  flex-shrink: 0;
+  padding: 0;
+  border: none;
+  cursor: col-resize;
+}
+
+/* 顶栏色带仅同步左侧 resizer；右侧与右栏背景一致，避免出现填色块 */
+.layout--editor-top-band .resizer-left {
+  background: linear-gradient(
+    to bottom,
+    var(--vscode-editorGroupHeader-tabsBackground, #252526) 0,
+    var(--vscode-editorGroupHeader-tabsBackground, #252526)
+      var(--layout-body-top-band-height),
+    var(--vscode-editor-background, #1e1e1e)
+      var(--layout-body-top-band-height)
+  );
+}
+
+.layout--editor-top-band .resizer-right {
+  background: var(--lr-agent-panel-background);
+}
+
+.resizer::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -4px;
+  right: -4px;
+  cursor: col-resize;
+}
+
+.resizer::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  background: transparent;
+  pointer-events: none;
+}
+
+.resizer-left:hover::after,
+.layout.is-resizing-left .resizer-left::after {
+  width: 2px;
+  background: var(--vscode-sash-hoverBorder, var(--lr-accent-blue));
+}
+
+.resizer-right:hover::after,
+.layout.is-resizing-right .resizer-right::after {
+  width: 2px;
+  background: var(--vscode-sash-hoverBorder, var(--lr-accent-blue));
+}

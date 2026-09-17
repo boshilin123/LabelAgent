@@ -1,0 +1,38 @@
+.delete-account-dialog {
+  width: min(420px, calc(100vw - 32px));
+  padding: 16px;
+  border-radius: 8px;
+  background: var(--vscode-editor-background, #1e1e1e);
+  border: 1px solid var(--vscode-panel-border, #3c3c3c);
+  box-shadow: 0 8px 32px var(--lr-menu-shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.delete-account-title {
+  margin: 0;
+  font-size: var(--lr-ui-font-large);
+  font-weight: 600;
+  color: var(--vscode-foreground, #cccccc);
+}
+
+.delete-account-hint {
+  margin: 0;
+  font-size: var(--lr-ui-font-small);
+  line-height: 1.5;
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+}
+
+.delete-account-error {
+  margin: 0;
+  font-size: var(--lr-ui-font-small);
+  color: var(--vscode-errorForeground);
+}
+
+.delete-account-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}

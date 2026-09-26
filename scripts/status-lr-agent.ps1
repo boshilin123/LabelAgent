@@ -1,5 +1,10 @@
 $ErrorActionPreference = 'Continue'
 
+if ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..')).TrimEnd('\') -eq
+    [IO.Path]::GetFullPath('D:\Study\LR-Agent-LangChain-Migration').TrimEnd('\')) {
+    throw 'Legacy status script reads the original project. Check the migration stack with docker compose -f docker-compose.migration.yml ps.'
+}
+
 Write-Host '=== Backend containers ==='
 Push-Location 'D:\Study\LR-Agent\LR-Agent-backend\docker'
 docker compose ps

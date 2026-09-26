@@ -1,5 +1,22 @@
 import type { BatchAnnotationPlan } from '../../../shared/annotationAgentTypes';
-import { applyDetectionOverrides } from './geometryBatchPipeline';
+import {
+  applyDetectionOverrides,
+  defaultGeometryPlan,
+} from './geometryBatchPipeline';
+
+describe('defaultGeometryPlan', () => {
+  it('maps detections directly when the project has exactly one label', () => {
+    expect(defaultGeometryPlan(false, 1).label_strategy).toBe(
+      'single_label_for_all_boxes',
+    );
+  });
+
+  it('retains per-box mapping when the project has multiple labels', () => {
+    expect(defaultGeometryPlan(false, 2).label_strategy).toBe(
+      'map_each_box_to_label',
+    );
+  });
+});
 import { parseDetectionOverrides } from '../agentJobRegistry';
 
 function basePlan(): BatchAnnotationPlan {

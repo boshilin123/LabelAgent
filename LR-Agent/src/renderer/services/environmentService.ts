@@ -7,7 +7,8 @@ import type {
   PythonValidationResult,
 } from '../../shared/envTypes';
 
-export const DEFAULT_BACKEND_BASE_URL = 'http://localhost:8000/api/v1';
+export const DEFAULT_BACKEND_BASE_URL =
+  process.env.API_BASE_URL?.trim() || 'http://localhost:8000/api/v1';
 
 export async function loadEnvironmentStatus(): Promise<EnvironmentStatus | null> {
   try {

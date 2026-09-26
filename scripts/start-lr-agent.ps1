@@ -1,5 +1,12 @@
 $ErrorActionPreference = 'Stop'
 
+# This copied legacy launcher hardcodes D:\Study\LR-Agent below. Fail closed
+# inside the migration copy; use start-migration-containers.ps1 instead.
+if ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..')).TrimEnd('\') -eq
+    [IO.Path]::GetFullPath('D:\Study\LR-Agent-LangChain-Migration').TrimEnd('\')) {
+    throw 'Legacy launcher points to the original project. Use scripts\start-migration-containers.ps1 for the isolated stack.'
+}
+
 $workspace = 'D:\Study\LR-Agent'
 $runtime = Join-Path $workspace '.venvs\.runtime'
 $frontend = Join-Path $workspace 'LR-Agent'

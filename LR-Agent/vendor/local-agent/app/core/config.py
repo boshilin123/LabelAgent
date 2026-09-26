@@ -45,6 +45,16 @@ class Settings(BaseSettings):
     # 功能开关
     agent_mutation_enabled: bool = True
 
+    # 阶段 7 后端受控引擎开关（环境变量 AGENT_ENGINE，与其它 agent_* 字段同规则）：
+    #   candidate（**阶段 8 行动 5 已切换为默认**）= app/agent/langchain_runtime/entry.py
+    #                 的候选入口（官方 create_agent 承接模型—工具循环）；
+    #   legacy                                    = 旧 /chat/stream 原路径，保留为回退开关。
+    # 前端不参与选择。
+    # ⚠️ 依赖前提：`candidate` 需要运行环境安装 `langchain` / `langgraph`
+    #   （副本用 .venvs\langchain-migration；原环境只有 langchain-core，**不可**直接部署本默认值）。
+    # 切换依据见 docs/阶段8-对照度量.md（§6 清单）与 docs/阶段{4,5,7}-验收记录.md。
+    agent_engine: Literal["legacy", "candidate"] = "candidate"
+
     # 标注 LLM
     annotation_llm_temperature: float = 0.0
     annotation_prepare_temperature: float = 0.1

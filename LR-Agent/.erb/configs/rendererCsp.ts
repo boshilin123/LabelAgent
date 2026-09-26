@@ -28,7 +28,7 @@ export function buildRendererCsp(isDevelopment: boolean): string {
     "default-src 'none'",
     scriptSrc,
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: blob: https: http://localhost:9000 http://127.0.0.1:9000",
+    "img-src 'self' data: blob: https: http://localhost:9000 http://127.0.0.1:9000 http://localhost:19000 http://127.0.0.1:19000",
     "font-src 'self' data:",
     connectSrc,
     "media-src 'self' blob: data:",

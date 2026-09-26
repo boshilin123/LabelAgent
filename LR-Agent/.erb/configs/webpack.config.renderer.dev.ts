@@ -245,7 +245,7 @@ const configuration: webpack.Configuration = {
   },
 
   devServer: {
-    host: '0.0.0.0',
+    host: process.env.LR_AGENT_DEV_HOST || '0.0.0.0',
     port,
     compress: true,
     hot: true,

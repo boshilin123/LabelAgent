@@ -2,6 +2,9 @@
 .venvs/*
 !.venvs/.gitkeep
 
+# Isolated desktop data and credentials, when moved outside .venvs.
+.migration-user-data/
+
 # 密钥和本机配置
 **/.env
 **/.env.*
@@ -28,4 +31,3 @@
 
 # 本机诊断输出
 **/diag_output/
-

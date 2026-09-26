@@ -81,6 +81,15 @@ class AppUpdater {
 let mainWindow: BrowserWindow | null = null;
 let themeIpcRegistered = false;
 
+// Migration desktop runs beside the original app. Keep its local database,
+// provider keys, sessions, and Electron cache out of the original userData.
+const isolatedUserData = process.env.LR_AGENT_USER_DATA_DIR?.trim();
+if (isolatedUserData) {
+  const resolved = path.resolve(isolatedUserData);
+  fs.ensureDirSync(resolved);
+  app.setPath('userData', resolved);
+}
+
 // ── 深链（lr-agent://reset-password）处理 ──
 
 // 只在打包/生产环境启用单实例锁：开发环境 electronmon 会反复重启 Electron，
@@ -887,7 +896,9 @@ app
   .whenReady()
   .then(async () => {
     if (!gotSingleInstanceLock) return;
-    app.setAsDefaultProtocolClient('lr-agent');
+    if (!isolatedUserData) {
+      app.setAsDefaultProtocolClient('lr-agent');
+    }
     registerSecurityHeaders();
     // 覆盖未来新增的所有 webContents，统一做导航/开窗白名单
     app.on('web-contents-created', (_event, contents) => {

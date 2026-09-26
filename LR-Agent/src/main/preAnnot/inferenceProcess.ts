@@ -13,6 +13,7 @@ import {
 } from '../env/pythonDiscovery';
 import { getEnvironmentConfig } from '../env/envStore';
 import { getVenvPythonPath } from '../env/runtimeManager';
+import { mergeModelParams } from './mergeModelParams';
 import type {
   PreAnnotRequest,
   PreAnnotResult,
@@ -330,7 +331,7 @@ export async function runPreAnnotInference(
 ): Promise<PreAnnotRunResponse> {
   const model = {
     ...request.model,
-    params: { ...request.model.params, ...request.overrides },
+    params: mergeModelParams(request.model.params, request.overrides),
   };
 
   const payload = {

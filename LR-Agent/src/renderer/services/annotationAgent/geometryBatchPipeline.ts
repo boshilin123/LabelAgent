@@ -64,12 +64,14 @@ function progress(
   return { type: 'progress', stage, message, status, detail, imagePath };
 }
 
-function defaultGeometryPlan(
+export function defaultGeometryPlan(
   providerSupportsVision?: boolean,
+  labelCount = 0,
 ): BatchAnnotationPlan {
   return {
     intent_summary: '几何实例检测 + 标签映射',
-    label_strategy: 'map_each_box_to_label',
+    label_strategy:
+      labelCount === 1 ? 'single_label_for_all_boxes' : 'map_each_box_to_label',
     use_vision_mapping: providerSupportsVision ?? false,
     detection_hints: {},
     sub_agent_constraints: {},
@@ -342,7 +344,10 @@ export async function* runGeometryPipeline(
     id: l.id,
     name: l.name,
   }));
-  const plan = defaultGeometryPlan(options.providerSupportsVision);
+  const plan = defaultGeometryPlan(
+    options.providerSupportsVision,
+    labelCandidates.length,
+  );
   applyDetectionOverrides(
     plan,
     options.detectionOverrides,

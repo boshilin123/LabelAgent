@@ -5,6 +5,11 @@
 # Isolated desktop data and credentials, when moved outside .venvs.
 .migration-user-data/
 
+# Local-only migration verification data and backups.
+.branch-switch-backup/
+demo/bottlecap/
+weights/BottleCap.pt
+
 # 密钥和本机配置
 **/.env
 **/.env.*
@@ -31,3 +36,8 @@
 
 # 本机诊断输出
 **/diag_output/
+**/.dsh-project-memory/
+**/.langgraph_api/
+/tmp/
+# 迁移实验的运行输出不属于源码。
+LR-Agent/vendor/local-agent/experiments/*.out.txt

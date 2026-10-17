@@ -1,0 +1,6 @@
+{
+  "dependencies": ["."],
+  "graphs": {
+    "lr_agent_ask": "./studio_graph.py:graph"
+  }
+}

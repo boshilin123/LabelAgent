@@ -1,5 +1,9 @@
 # LR-Agent Local
 
+> 当前默认引擎已迁移为官方 `create_agent`（底层 LangGraph），保留 `legacy` 对照路径。
+> 正式依赖统一为本目录 `requirements.txt`；根工作区部署入口见 `docs/本地部署方案.md`。
+> 本项目不接入 RAG / 向量知识库。
+
 本机 Agent 编排服务，由 Electron 客户端 spawn，仅监听 `127.0.0.1`。
 
 > 本服务内嵌于客户端仓库 `vendor/local-agent/`：开发模式由主进程从
@@ -25,9 +29,10 @@ API Key 由前端在请求体中直传（BYOK），仅用于本次 LLM 调用，
 ### 1. Conda 环境
 
 ```bash
-conda create -n lr-agent-local python=3.12 -y
-conda activate lr-agent-local
-pip install -r requirements.txt
+cd D:\Study\LR-Agent
+py -3.12 -m venv .venvs\langchain-main
+.\.venvs\langchain-main\Scripts\python.exe -m pip install -r LR-Agent\vendor\local-agent\requirements.txt
+.\.venvs\langchain-main\Scripts\python.exe -m pip check
 ```
 
 也可设置环境变量让 Electron 自动查找：
@@ -38,7 +43,10 @@ pip install -r requirements.txt
 ### 2. 启动
 
 ```bash
-python local_main.py
+cd D:\Study\LR-Agent\LR-Agent\vendor\local-agent
+$env:LR_AGENT_LOCAL_TOKEN = 'local-debug-only'
+$env:AGENT_ENGINE = 'candidate'
+D:\Study\LR-Agent\.venvs\langchain-main\Scripts\python.exe local_main.py
 # 或
 uvicorn local_main:app --host 127.0.0.1 --port 8765
 ```
@@ -53,7 +61,7 @@ uvicorn local_main:app --host 127.0.0.1 --port 8765
 ```
 app/
 ├── agent/               # Assist / 标注 LLM 编排（与 backend 同源迁移）
-├── api/v1/              # 路由（无认证、无 Redis 限流）
+├── api/v1/              # 本机 token 保护的路由，无 Redis 限流
 ├── core/                # 精简 Settings、依赖注入
 ├── models/              # User stub（本地无数据库）
 └── schemas/             # Pydantic DTO
@@ -78,7 +86,7 @@ local_main.py            # FastAPI 入口
 
 | 维度 | backend（云端） | local（本服务） |
 |------|----------------|-----------------|
-| 认证 | JWT + `CurrentUser` | 无（本机单用户） |
+| 认证 | JWT + `CurrentUser` | 启动时注入的本机 token（health 除外） |
 | 限流 | Redis | 无 |
 | 数据库 | PostgreSQL | 无 |
 | 配置 | 完整 `Settings` | 精简 `Settings`（仅 agent/annotation 字段） |

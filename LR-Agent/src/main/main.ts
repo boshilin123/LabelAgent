@@ -1,3 +1,4 @@
+import './logging/installStdioGuards';
 import path from 'path';
 import { open } from 'fs/promises';
 import fs from 'fs-extra';

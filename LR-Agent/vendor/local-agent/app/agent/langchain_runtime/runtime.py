@@ -1,9 +1,13 @@
-"""阶段 1 候选内核：官方 ``create_agent`` 的最小封装（后端专用，不接生产路由）。
+"""当前默认 Agent 内核：官方 ``create_agent`` 的轻量封装（后端专用）。
+
+学习入口（2026-10-17）：``Settings.agent_engine`` 默认是 ``candidate``，
+HTTP 路由经 ``entry.py`` 调用本模块；``candidate`` 是迁移期保留的配置名称。
+入口会装配业务 middleware，原始流事件再由 SSE 适配器转换。下述阶段说明
+保留迁移背景，不能将阶段 1 的限制当成当前生产行为。
 
 设计边界（对应迁移计划 §5-阶段 1）：
 
-- **只加不改**：本包不导入 ``app.api.*``，也不被任何现有生产模块导入；
-  ``stream_assist`` / ``app/api/v1/agent.py`` 保持原样。
+- **依赖方向**：本包不导入 ``app.api.*``；HTTP 层通过 ``entry.py`` 装配内核。
 - **模型实例注入**：调用方传入已构造好的 ``BaseChatModel`` 实例（项目里是
   ``ChatOpenAI``），本模块**不实例化任何模型**、不读取任何密钥。
 - **工具清单复用**：直接消费 ``app.agent.tools.registry`` 产出的
@@ -12,8 +16,9 @@
   静态上下文**，通过 ``create_agent(context_schema=...)`` + ``astream(context=...)``
   传入，工具侧经 ``langchain.tools.ToolRuntime.context`` 读取。
   不使用 Store，不使用 checkpointer。
-- **无 middleware**：阶段 2 才引入阶段门禁 / 合批去重 / 预算收尾。
-- **无 SSE 映射**：本模块只产出官方 v2 原始事件，映射由阶段 4 的适配器负责。
+- **middleware 注入**：工厂默认空列表；当前业务入口会传入阶段门禁 / 合批去重 /
+  预算收尾等 middleware。
+- **SSE 映射在外层**：本模块产出官方 v2 原始事件，由适配器负责映射。
 
 阶段 3 对早停的处置（**重要，见 :func:`stream_agent_raw_events` 的
 ``early_stop_on_client_tools``）：阶段 1 的早停「只要模型消息里出现客户端工具名就

@@ -1,12 +1,14 @@
-"""阶段 7：候选引擎的 **SSE 入口**（FastAPI 层可切换的那一条路径）。
+"""当前默认 Agent 引擎的 **SSE 入口**（配置名称保留为 ``candidate``）。
 
 本模块是「旧 HTTP 层前置段 + 候选内核」的粘合层，按迁移计划 §5-阶段 7 的要求：
 
-1. **旧 ``/chat/stream`` 保持默认**：``app/api/v1/agent.py::local_chat_stream`` 在
-   **engine 判定为 ``candidate`` 之后**才 import 本模块；``legacy``（默认）时
+1. **按后端配置选择内核**：``Settings.agent_engine`` 当前默认 ``candidate``。
+   ``app/api/v1/agent.py::local_chat_stream`` 在判定为 ``candidate`` 之后
+   才 import 本模块；显式选择 ``legacy`` 回退时
    ``_stream_local_chat`` 直连，本模块**连被 import 都不会发生**。
    ⚠️ 判定必须先于 import：本包 ``__init__`` 会导入 ``middleware``（需要 ``langchain``
-   包），而原生产环境只有 ``langchain-core``。行为级回归见
+   包）。旧部署曾仅安装 ``langchain-core``；正式部署现在使用完整 requirements。
+   保留惰性导入以维护回退隔离。行为级回归见
    ``tests/test_engine_switch_import_safety.py``。
 2. **复用旧前置段而不是重写**：模型构造、辅助模型、``has_tools`` 判定、阶段上下文、
    系统提示、工具清单、MCP 发现（含 ``preparing(stage="mcp")`` 与失败兜底）、
@@ -751,7 +753,7 @@ async def stream_engine_sse(
 
     ``settings.agent_engine`` 是本次运行的唯一开关：
 
-    - ``"legacy"``（默认）：**原样**委派旧 ``_stream_local_chat``，一个字节都不变；
+    - ``"legacy"``（显式回退）：**原样**委派旧 ``_stream_local_chat``，一个字节都不变；
     - ``"candidate"``：委派 :func:`stream_candidate_engine_sse`。
 
     ``Settings`` 是 ``BaseSettings``，因此 ``AGENT_ENGINE=candidate`` 即可在

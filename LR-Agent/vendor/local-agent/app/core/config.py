@@ -51,7 +51,8 @@ class Settings(BaseSettings):
     #   legacy                                    = 旧 /chat/stream 原路径，保留为回退开关。
     # 前端不参与选择。
     # ⚠️ 依赖前提：`candidate` 需要运行环境安装 `langchain` / `langgraph`
-    #   （副本用 .venvs\langchain-migration；原环境只有 langchain-core，**不可**直接部署本默认值）。
+    #   当前正式环境是 .venvs\langchain-main，安装入口为 requirements.txt；
+    #   只有 langchain-core 的旧环境不满足当前默认内核的依赖要求。
     # 切换依据见 docs/阶段8-对照度量.md（§6 清单）与 docs/阶段{4,5,7}-验收记录.md。
     agent_engine: Literal["legacy", "candidate"] = "candidate"
 

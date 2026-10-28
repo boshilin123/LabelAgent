@@ -511,23 +511,24 @@ async def local_chat_stream(
     """无状态 chat/stream —— 所有数据从请求体获取，不读 DB。
 
     引擎由**后端**设置决定（``settings.agent_engine``，环境变量
-    ``AGENT_ENGINE``，默认 ``"legacy"``）：``legacy`` 时本函数与迁移前逐字节相同
-    ——**直接把 ``_stream_local_chat`` 交给 ``StreamingResponse``，且完全不 import
+    ``AGENT_ENGINE``，当前默认 ``"candidate"``）：显式选择 ``legacy`` 时，
+    **直接把 ``_stream_local_chat`` 交给 ``StreamingResponse``，且完全不 import
     候选包**；``candidate`` 时才惰性 import 阶段 7 的候选入口。前端不参与选择。
 
     为什么 engine 判定必须在 import 之前：导入 ``app.agent.langchain_runtime.entry``
     会先执行该包的 ``__init__.py``，其中 ``middleware`` 模块要求 ``langchain`` 包存在；
-    而原生产环境只装了 ``langchain-core`` / ``langchain-openai`` /
+    迁移前的生产环境只装了 ``langchain-core`` / ``langchain-openai`` /
     ``langchain-mcp-adapters``，**没有** ``langchain`` / ``langgraph``。若把 import
     提到判定之前，legacy 路径会在**每个请求**上抛 ``ModuleNotFoundError``
-    （阶段 7 复核实测到该缺陷）。回归测试：``tests/test_engine_switch_import_safety.py``。
+    （阶段 7 复核实测到该缺陷）。当前正式 requirements 已包含完整依赖，
+    仍保留惰性导入以隔离回退路径。回归测试：``tests/test_engine_switch_import_safety.py``。
     """
 
     engine = (
         str(getattr(settings, "agent_engine", "legacy") or "legacy").strip().lower()
     )
     if engine != "candidate":
-        # 默认路径：与迁移前一致，且不触碰候选包（生产环境无 langchain 亦安全）
+        # 显式回退或缺失配置对象的兼容路径；不触碰 candidate 包。
         return StreamingResponse(
             _stream_local_chat(
                 body,

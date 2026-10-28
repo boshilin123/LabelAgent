@@ -5,3 +5,6 @@
 *.safetensors filter=lfs diff=lfs merge=lfs -text
 *.ckpt filter=lfs diff=lfs merge=lfs -text
 
+
+# Preserve learning PDFs byte-for-byte and avoid text diffs / newline conversion.
+*.pdf binary

@@ -21,7 +21,13 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File D:\Study\LR-Agent\script
 
 缺少 LangSmith Key 不阻止启动。显式关闭追踪可添加 `-DisableTracing`。模型 Key 在桌面端“大模型配置”中填写，使用 Electron safeStorage 加密保存，不提交到 Git。
 
+## 后端 Agent 分析
+
+- [2026-10-28 项目与后端 Agent 分析](docs/2026-10-28项目与后端Agent分析.md)：默认调用链、工具执行分类、Middleware、请求续跑、study 学习路线和本次回归证据。
+
 ## 目录与版本
+
+学习前先看 [学习资料入口](study/README.md) 与 [学习准备与章节计划](docs/学习准备与章节计划.md)。教材面向最基础 Python、LangChain 零基础，已完成第 0 至 9 章，共 184 页、37 个完整离线实验；从 Python 和 LangChain 入门，进入 Agent 工具循环、业务约束、接口续跑、扩展测试和简历复盘。
 
 - `LR-Agent/`：桌面端、Local Agent 与 inference。
 - `LR-Agent-backend/`：认证与用户资料 API；PostgreSQL、Redis、MinIO 配套容器。

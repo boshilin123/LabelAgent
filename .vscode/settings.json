@@ -1,0 +1,9 @@
+{
+  "python.defaultInterpreterPath": "${workspaceFolder}/.venvs/langchain-main",
+  "python-envs.workspaceSearchPaths": [
+    "./.venvs/langchain-main"
+  ],
+  "python.analysis.extraPaths": [
+    "${workspaceFolder}/LR-Agent/vendor/local-agent"
+  ]
+}

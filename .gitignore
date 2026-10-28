@@ -28,6 +28,10 @@ weights/BottleCap.pt
 
 # 编辑器与操作系统文件
 **/.vscode/
+# Share only the root project's portable Python settings.
+!/.vscode/
+/.vscode/*
+!/.vscode/settings.json
 **/.idea/
 **/.cursor/
 **/.DS_Store

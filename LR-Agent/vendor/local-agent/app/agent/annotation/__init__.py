@@ -1,3 +1,4 @@
+# 学习导航：集中导出标注辅助服务，__all__ 规定包的公开名称；各服务的具体调用位置请结合 api/v1/annotation_agent.py 阅读。
 # ⚠️ 这些函数仅供前端流水线（batchOrchestrator / mutationOrchestrator）内部调用。
 # 外部不应直接 import 或通过 API 暴露。
 # 标注执行的唯一用户入口是 auto_annotate → agentJobRegistry。

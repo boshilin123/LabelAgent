@@ -1,3 +1,4 @@
+# 学习导航：把用户对已有标注的修改要求转换成结构化 operations；这里只准备修改指令，不直接操作项目标注文件。
 """标注变更准备：单次 LLM 解析 mutate 意图与目标描述。"""
 
 from __future__ import annotations
@@ -78,16 +79,19 @@ text_classification、classification、span_ner、instruction、preference、con
 """
 
 
+# 描述一个二维点，供几何标注操作的结构校验使用。
 class MutationPointSchema(BaseModel):
     x: float
     y: float
 
 
+# 描述一条结构化推理步骤，供对应标注字段使用。
 class MutationCotStepSchema(BaseModel):
     description: str
     conclusion: str
 
 
+# 描述关键点位置与附加信息，约束模型输出的字段格式。
 class MutationKeypointSchema(BaseModel):
     x: float
     y: float
@@ -95,11 +99,13 @@ class MutationKeypointSchema(BaseModel):
     visibility: int = 2
 
 
+# 描述一段对话轮次内容，供对话类标注修改使用。
 class MutationTurnSchema(BaseModel):
     role: Literal["user", "assistant"]
     content: str = Field(min_length=1)
 
 
+# 描述待修改目标的定位条件，让后续执行器知道要修改哪些已有实例。
 class MutationTargetSchema(BaseModel):
     by: Literal[
         "id",
@@ -123,6 +129,7 @@ class MutationTargetSchema(BaseModel):
     language: str | None = None
 
 
+# 描述一次改标签、改几何、改内容或删除操作，以及该操作携带的具体字段。
 class MutationOperationSchema(BaseModel):
     relative_path: str = Field(min_length=1)
     mutation_kind: Literal[
@@ -161,12 +168,14 @@ class MutationOperationSchema(BaseModel):
     note: str | None = None
 
 
+# 模型直接生成的结果结构，先经 Pydantic 校验再交给后续整理。
 class MutationPrepareLlmResult(BaseModel):
     selected_paths: list[str] = Field(default_factory=list)
     intent_summary: str = ""
     operations: list[MutationOperationSchema] = Field(default_factory=list)
 
 
+# 返回调用方的准备结果，包含有效选图路径、修改操作和原始用户需求。
 class MutationPrepareResult(BaseModel):
     selected_paths: list[str] = Field(default_factory=list)
     intent_summary: str = ""
@@ -174,6 +183,7 @@ class MutationPrepareResult(BaseModel):
     resolved_user_request: str = ""
 
 
+# 将模型选出的路径限制在客户端候选清单内，不接受凭空生成的文件路径。
 def _filter_paths(raw_paths: object, candidates: list[dict]) -> list[str]:
     by_path = {
         str(c.get("relative_path") or "").strip().replace("\\", "/"): c
@@ -189,6 +199,7 @@ def _filter_paths(raw_paths: object, candidates: list[dict]) -> list[str]:
     return selected
 
 
+# 给模型提供候选文件、标签和选中实例，解析并整理成修改操作列表；无候选时提前返回。
 async def prepare_mutation_annotation(
     llm: ChatOpenAI,
     *,

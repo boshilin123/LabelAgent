@@ -1,3 +1,5 @@
+# 学习导航：官方 Agent 工厂与原始事件驱动层。build_langchain_agent 负责创建图，stream_agent_raw_events 负责执行图。
+# 这里保留框架原始事件，项目的 SSE 字段映射在 sse_adapter.py。
 """当前默认 Agent 内核：官方 ``create_agent`` 的轻量封装（后端专用）。
 
 学习入口（2026-10-17）：``Settings.agent_engine`` 默认是 ``candidate``，
@@ -62,6 +64,7 @@ STREAM_VERSION = "v2"
 """``CompiledStateGraph.astream`` 的 v2 事件格式（事件为 ``{"type","ns","data"}`` 字典）。"""
 
 
+# 一次运行的上下文结构；工具通过 ToolRuntime.context 读取它，不承担数据库或长期记忆职责。
 class AgentContext(BaseModel):
     """单次调用内的静态运行上下文（**不是**长期记忆，也不进 checkpointer）。
 
@@ -99,6 +102,7 @@ class AgentContext(BaseModel):
     task_phase_context: Any = Field(default=None, exclude=True, repr=False)
     extra: dict[str, Any] = Field(default_factory=dict, exclude=True, repr=False)
 
+    # 按名称检查工具是否交由客户端执行，返回布尔值。
     def is_client_tool(self, name: str) -> bool:
         """该工具是否由客户端执行（后端不得执行）。"""
         return name in self.client_tool_names
@@ -109,6 +113,8 @@ class AgentContext(BaseModel):
 AgentEvent = dict[str, Any] | tuple[Any, ...]
 
 
+# 这里调用的 create_agent 来自 langchain.agents，是官方工厂；返回可执行的状态图。
+# model、tools 和 middleware 由 entry.py 准备好传进来，本函数没有另写一套模型—工具循环。
 def build_langchain_agent(
     model: BaseChatModel,
     tools: Sequence[BaseTool],
@@ -148,6 +154,7 @@ def build_langchain_agent(
     返回官方 ``CompiledStateGraph``（``create_agent`` 的返回值），可直接
     ``astream`` / ``ainvoke``。
     """
+    # 真正的官方工厂调用点：构建“模型判断 → 工具执行 → 再次判断”的图；此处尚未运行图。
     return create_agent(
         model,
         list(tools),
@@ -158,6 +165,7 @@ def build_langchain_agent(
     )
 
 
+# 用可 JSON 序列化的字典表示一次待交给客户端的调用，包含名称、参数和唯一调用 ID。
 class PendingToolCall(dict):
     """客户端工具待执行调用（阶段 4 适配为 ``tool_pending`` 的原始素材）。
 
@@ -165,6 +173,7 @@ class PendingToolCall(dict):
     ``tool_call_id`` / ``name`` / ``arguments`` / ``type``。
     """
 
+    # 把调用信息存成固定字段，供流适配器识别为 client_tool_pending。
     def __init__(self, tool_call_id: str, name: str, arguments: dict[str, Any]) -> None:
         super().__init__(
             type="client_tool_pending",
@@ -174,6 +183,7 @@ class PendingToolCall(dict):
         )
 
 
+# 兼容参数已经是字典或仍是 JSON 字符串的情况；未完成的 JSON 片段保留为 __raw__。
 def _call_arguments(call: Any) -> dict[str, Any]:
     """从 ``tool_call`` / ``tool_call_chunk`` 归一化出参数字典。
 
@@ -192,23 +202,27 @@ def _call_arguments(call: Any) -> dict[str, Any]:
     return {}
 
 
+# 从消息对象取工具调用列表；没有调用时返回空列表，方便统一遍历。
 def _tool_calls_of(message: Any) -> list[Any]:
     calls = getattr(message, "tool_calls", None)
     return list(calls) if calls else []
 
 
+# 兼容字典和对象两种调用格式，提取工具名称。
 def _call_name(call: Any) -> str:
     return str(
         (call.get("name") if isinstance(call, dict) else getattr(call, "name", "")) or ""
     )
 
 
+# 提取本次调用的唯一 ID；同一个工具可以在不同轮拥有不同 ID。
 def _call_id(call: Any) -> str:
     return str(
         (call.get("id") if isinstance(call, dict) else getattr(call, "id", "")) or ""
     )
 
 
+# 筛出消息里需要客户端执行的调用，并排除已经有结果的 ID。
 def _client_calls_in(
     message: Any,
     context: AgentContext,
@@ -232,6 +246,7 @@ def _client_calls_in(
     ]
 
 
+# 检查图中是否有模型结束后的处理节点，用来避免旧式早停跳过业务中间件。
 def _has_after_model_hook(agent: Any) -> bool:
     """Agent 上是否挂了 ``after_model`` middleware hook（= 有业务件表达挂起 / 抑制）。
 
@@ -247,6 +262,8 @@ def _has_after_model_hook(agent: Any) -> bool:
     return False
 
 
+# 通过 agent.astream 真正启动官方图，把收到的原始事件逐个交给调用方。
+# 后台任务负责读取框架流，队列把事件、异常和结束标记送回当前生成器。
 async def stream_agent_raw_events(
     agent: Any,
     messages: Sequence[Any],
@@ -330,6 +347,7 @@ async def stream_agent_raw_events(
     ``cancel()`` 并 ``await`` 掉包装 ``astream`` 的后台 task
     （阶段 4 备忘 §7 要求）。
     """
+    # 调用方未提供 context 时才创建空上下文，避免覆盖已装配好的阶段和去重信息。
     ctx = context if context is not None else AgentContext()
     pending: list[PendingToolCall] = []
     seen_pending_ids: set[str] = set()
@@ -354,6 +372,7 @@ async def stream_agent_raw_events(
         )
         raise ValueError(msg)
 
+    # astream 返回异步事件流；messages 是图输入，context 是供运行期读取的独立背景。
     agen = agent.astream(
         {"messages": list(messages)},
         context=ctx,
@@ -361,8 +380,10 @@ async def stream_agent_raw_events(
         version=version,
     )
     queue: asyncio.Queue[Any] = asyncio.Queue()
+    # 用独立对象当结束哨兵，可与正常事件数据可靠区分。
     _DONE = object()
 
+    # 持续从底层图取事件并写入队列；不吞掉异常，结束时放入专用结束标记。
     async def _pump() -> None:
         try:
             async for event in agen:
@@ -374,6 +395,7 @@ async def stream_agent_raw_events(
         finally:
             queue.put_nowait(_DONE)
 
+    # 启动读取任务；下面的循环等待 queue，收到事件后 yield 给外层。
     task = asyncio.create_task(_pump())
     try:
         while True:
@@ -404,6 +426,7 @@ async def stream_agent_raw_events(
             if stop_after_this:
                 break
     finally:
+        # 外层取消或提前结束时，一并停止读取任务，避免留下无人消费的后台流。
         if not task.done():
             task.cancel()
         try:
@@ -416,6 +439,7 @@ async def stream_agent_raw_events(
     pending_calls_out.extend(pending)
 
 
+# 从最终消息序列中提取最后一条 AI 消息的文本，适合调试或非流式结果展示。
 def assistant_text(messages: Sequence[Any]) -> str:
     """从 Agent 最终状态取出最后一条 AI 消息的文本（供阶段 4 / 调试使用）。
 

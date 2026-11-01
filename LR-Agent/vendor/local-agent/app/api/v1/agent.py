@@ -1,3 +1,5 @@
+# 学习导航：聊天 HTTP 入口。先读 local_chat_stream：当前默认转到 langchain_runtime/entry.py，用官方 create_agent。
+# 本文件较长的 _stream_local_chat 是保留的 legacy 实现，学习默认流程时不必先逐行读它。
 """Agent API — stateless Assist chat/stream for tool-enabled sessions.
 
 Session/chat CRUD and LLM provider config live in the Electron frontend
@@ -46,19 +48,23 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/agent", tags=["agent"])
 
+# 进程内的任务取消登记表；服务重启会清空，也没有跨多个进程共享。
 _cancel_events: dict[str, asyncio.Event] = {}
 
 
+# 按 client_job_id 获取或创建 asyncio.Event，让流式请求和取消接口共享同一取消标记。
 def _get_or_create_cancel_event(client_job_id: str) -> asyncio.Event:
     if client_job_id not in _cancel_events:
         _cancel_events[client_job_id] = asyncio.Event()
     return _cancel_events[client_job_id]
 
 
+# 任务结束后删除取消标记，避免进程内字典持续积累；不存在时也可安全调用。
 def _cleanup_cancel_event(client_job_id: str) -> None:
     _cancel_events.pop(client_job_id, None)
 
 
+# 构造本地匿名用户数据，满足工具注册接口所需字段，不查询数据库。
 def _anonymous_user() -> User:
     """Minimal anonymous User for tool building in stateless mode."""
     import uuid
@@ -72,6 +78,7 @@ def _anonymous_user() -> User:
     )
 
 
+# legacy 分支的消息转换，把请求历史转成 LangChain 的 System/Human/AI/Tool 消息。
 def _build_lc_messages_from_local(
     body: LocalChatStreamRequest,
     system_prompt: str,
@@ -130,6 +137,7 @@ def _build_lc_messages_from_local(
     return lc_messages
 
 
+# 旧引擎的完整流式实现，保留作回退；默认 candidate 分支使用 entry.py 的对应流程。
 async def _stream_local_chat(
     body: LocalChatStreamRequest,
     settings,
@@ -141,6 +149,7 @@ async def _stream_local_chat(
         client_job_id
     )
 
+    # 读取该任务的取消事件，供旧工具循环在多个步骤之间协作式停止。
     async def is_cancelled() -> bool:
         return cancel_event.is_set()
 
@@ -503,6 +512,8 @@ async def _stream_local_chat(
         )
 
 
+# 真正接收 /agent/chat/stream 请求的 HTTP 处理函数，按服务端引擎配置返回 SSE 响应。
+# 它决定走哪条实现；entry.py 负责业务装配；runtime.py 才调用官方 Agent 工厂。
 @router.post("/chat/stream")
 async def local_chat_stream(
     body: LocalChatStreamRequest,
@@ -524,6 +535,7 @@ async def local_chat_stream(
     仍保留惰性导入以隔离回退路径。回归测试：``tests/test_engine_switch_import_safety.py``。
     """
 
+    # Settings 的正式默认值为 candidate；这里的 legacy 是为缺失配置字段的旧对象保留的回退。
     engine = (
         str(getattr(settings, "agent_engine", "legacy") or "legacy").strip().lower()
     )
@@ -539,6 +551,7 @@ async def local_chat_stream(
 
     from app.agent.langchain_runtime.entry import stream_candidate_engine_sse
 
+    # StreamingResponse 会逐段消费生成器，把结果以 text/event-stream 返回给调用方。
     return StreamingResponse(
         stream_candidate_engine_sse(
             body,
@@ -549,6 +562,7 @@ async def local_chat_stream(
     )
 
 
+# 按任务 ID 设置取消事件；流式处理在检查到标记后停止，不代表立即撤销已完成的工具副作用。
 @router.post("/chat/cancel")
 async def cancel_chat(
     body: ChatCancelRequest,
@@ -567,6 +581,7 @@ async def cancel_chat(
     }
 
 
+# 检查 MCP URL 并尝试获取工具清单，返回连接结果与工具名，不经过聊天模型。
 @router.post("/mcp/probe")
 async def probe_mcp_server(
     body: McpProbeRequest,

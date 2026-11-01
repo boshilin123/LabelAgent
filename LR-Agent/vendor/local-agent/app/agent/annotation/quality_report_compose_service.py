@@ -1,3 +1,4 @@
+# 学习导航：基于调用方提供的质量指标和发现撰写报告，不在这里重新计算指标或扫描整个项目。
 """标注质量报告 LLM 撰写。"""
 
 from __future__ import annotations
@@ -22,6 +23,7 @@ QUALITY_REPORT_COMPOSE_SYSTEM = """你是 LR-Agent 标注质量报告撰写助�
 """
 
 
+# 把质量数据作为模型输入，逐段返回 Markdown 报告文字事件，并控制输入文本长度。
 async def stream_quality_report_compose(
     llm: ChatOpenAI,
     *,

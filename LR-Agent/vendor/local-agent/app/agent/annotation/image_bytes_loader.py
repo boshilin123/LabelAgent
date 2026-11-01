@@ -1,3 +1,4 @@
+# 学习导航：统一加载与压缩图片，供视觉标注、候选预筛和生成类接口共用。
 """图像字节加载：从本地绝对路径或 base64 获取原始图像数据。
 
 Electron 客户端与后端 API 同机部署时优先读 image_absolute_path；
@@ -11,6 +12,7 @@ import io
 from pathlib import Path
 
 
+# 优先从本地绝对路径读取，失败时尝试 base64；返回（图片字节或 None，来源标记）。
 def load_image_bytes(
     *,
     image_absolute_path: str = "",
@@ -37,6 +39,7 @@ def load_image_bytes(
         return None, "none"
 
 
+# 等比限制最长边、处理透明背景并编码为 JPEG，返回（压缩字节，MIME 类型）。
 def resize_image_to_jpeg_bytes(
     raw: bytes,
     *,
@@ -68,6 +71,7 @@ def resize_image_to_jpeg_bytes(
     return buffer.getvalue(), "image/jpeg"
 
 
+# 先压缩再转成 base64 data URL，让多模态接口可以把图片放在 image_url 字段。
 def image_bytes_to_data_url(
     raw: bytes,
     *,

@@ -1,3 +1,4 @@
+# 学习导航：统一文本文件后缀白名单。写文件、替换、删除提案等复用这里判断允许操作的文件类型。
 """工作区文本文件策略。
 
 - 读取/预览：用「二进制/富媒体后缀集合」判断是否可作为纯文本读取。
@@ -148,6 +149,7 @@ TEXT_WRITE_WHITELIST: frozenset[str] = frozenset(
 )
 
 
+# 白名单之外的后缀一律视为不允许，检查时统一后缀大小写。
 def is_blocked_text_extension(ext: str) -> bool:
     """是否禁止写盘/编辑（白名单之外一律禁止）。
 
@@ -157,6 +159,7 @@ def is_blocked_text_extension(ext: str) -> bool:
     return not is_allowed_text_extension(ext)
 
 
+# 空后缀按文本放行；其他后缀须属于文本/代码白名单，扩展类型在此统一维护。
 def is_allowed_text_extension(ext: str) -> bool:
     """仅白名单内的文本/代码后缀可写、可被 str_replace / delete 操作。
 

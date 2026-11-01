@@ -1,3 +1,4 @@
+# 学习导航：不请求 LLM 的标签映射：依据检测类名和可选 OCR 文字寻找项目标签。
 """启发式检测框 → 标签映射（无 LLM）。
 
 作为 map_detection_boxes_to_labels_unified 的非视觉回退路径，
@@ -10,6 +11,7 @@
 from __future__ import annotations
 
 
+# 按类名精确匹配、唯一的部分匹配、唯一 OCR 命中依次尝试；不确定时留空 label_id。
 def heuristic_map_boxes(
     boxes: list[dict],
     label_candidates: list[dict],
@@ -17,6 +19,7 @@ def heuristic_map_boxes(
     ocr_text: str = "",
 ) -> list[dict]:
     """为每个检测框尝试基于类名/OCR 的自动标签映射，无法匹配时 label_id 为空。"""
+    # 建立小写标签名索引以便快速精确匹配；最终输出仍使用项目真实标签 ID。
     by_name: dict[str, dict] = {}
     for item in label_candidates:
         name = str(item.get("name") or "").strip().lower()
@@ -29,6 +32,7 @@ def heuristic_map_boxes(
 
     for idx, box in enumerate(boxes):
         det = str(box.get("class_name") or box.get("detection_label") or "").strip()
+        # chosen 只表示当前框选中的候选标签；每个框都重新初始化，避免沿用上一个框的标签。
         chosen: dict | None = None
         reason = ""
 

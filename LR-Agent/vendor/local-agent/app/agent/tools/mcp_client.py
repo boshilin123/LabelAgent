@@ -1,3 +1,5 @@
+# 学习导航：通过 MCP 协议发现外部工具，并把它们转换成 Agent 可用的工具对象。
+# 工具发现结果按连接缓存；发现清单和真正执行某个工具是两次不同的动作。
 """后端 MCP 客户端：连接本机 Electron MCP Server 与用户配置的远程 MCP，动态获取工具并注入 Agent 工具集。
 
 使用 langchain-mcp-adapters 将 MCP 工具 schema 转换为 LangChain StructuredTool。
@@ -45,6 +47,7 @@ _refresh_tasks: set[asyncio.Task] = set()
 _refreshing: set[tuple] = set()
 
 
+# 用 URL、传输协议和排序后的请求头形成连接指纹，同一连接可以复用工具发现结果。
 def _cache_key(conn: dict) -> tuple:
     headers = conn.get("headers") or {}
     return (
@@ -54,6 +57,7 @@ def _cache_key(conn: dict) -> tuple:
     )
 
 
+# 创建 MCP 客户端并请求工具清单；get_tools 返回工具对象，此时没有执行业务工具。
 async def _discover_tools(name: str, conn: dict) -> list[StructuredTool]:
     from langchain_mcp_adapters.client import MultiServerMCPClient
 
@@ -61,11 +65,13 @@ async def _discover_tools(name: str, conn: dict) -> list[StructuredTool]:
     return await client.get_tools()
 
 
+# TTL 大于零时缓存工具列表及单调时钟过期时间；TTL 不大于零则不写缓存。
 def _store_tools(key: tuple, tools: list[StructuredTool], ttl_seconds: float) -> None:
     if ttl_seconds > 0:
         _tools_cache[key] = (tools, time.monotonic() + ttl_seconds)
 
 
+# 缓存过期后启动后台刷新，同一连接同时只刷新一次；本轮可继续使用旧列表。
 def _schedule_refresh(name: str, conn: dict, ttl_seconds: float) -> None:
     """后台重新发现（不阻塞本轮请求）；失败沿用旧条目。"""
     key = _cache_key(conn)
@@ -73,6 +79,7 @@ def _schedule_refresh(name: str, conn: dict, ttl_seconds: float) -> None:
         return
     _refreshing.add(key)
 
+    # 重新发现工具，失败保留旧缓存；无论成败都释放正在刷新的标记。
     async def _run() -> None:
         try:
             tools = await _discover_tools(name, conn)
@@ -96,6 +103,7 @@ def _schedule_refresh(name: str, conn: dict, ttl_seconds: float) -> None:
     task.add_done_callback(_refresh_tasks.discard)
 
 
+# 清理发现缓存与刷新任务，供测试或主动刷新使用。
 def clear_mcp_tools_cache() -> None:
     """清空工具发现缓存（测试或强制刷新用）。"""
     for task in list(_refresh_tasks):
@@ -105,6 +113,7 @@ def clear_mcp_tools_cache() -> None:
     _tools_cache.clear()
 
 
+# 按工作区记忆开关和交互模式过滤 memory_*；只读聊天只允许 memory_read。
 def should_expose_mcp_tool(
     tool_name: str,
     *,
@@ -124,6 +133,7 @@ def should_expose_mcp_tool(
     return True
 
 
+# 预留按工具名登记能力的扩展点；当前实现始终返回 None，尚未做通用语义能力识别。
 def _infer_mcp_capability(tool_name: str) -> ToolCapability | None:
     """从 MCP 工具名称推断其能力类型。
 
@@ -135,6 +145,7 @@ def _infer_mcp_capability(tool_name: str) -> ToolCapability | None:
     return None
 
 
+# 为本机 MCP 地址追加 /mcp，并在配置 token 时带 Bearer 请求头。
 def _local_connection(mcp_server_url: str, token: str | None = None) -> dict:
     """本机 Electron MCP Server 连接参数（端点固定 /mcp，见 src/main/mcp/server.ts）。
 
@@ -152,6 +163,7 @@ def _local_connection(mcp_server_url: str, token: str | None = None) -> dict:
     return conn
 
 
+# 保留远程服务配置的完整 URL 和协议，避免重复拼接远程端点。
 def _remote_connection(server) -> dict:
     """远程 MCP Server 连接参数：URL 原样使用（不拼 /mcp），协议按配置。"""
     transport = getattr(server, "transport", None) or "streamable_http"
@@ -167,6 +179,7 @@ def _remote_connection(server) -> dict:
     return conn
 
 
+# 依据已知能力和已出现名称过滤重复工具；当前能力推断为空，实际主要按名称去重。
 def _filter_tools(
     tools: list[StructuredTool],
     *,
@@ -189,6 +202,7 @@ def _filter_tools(
     return filtered, skipped
 
 
+# 汇总本地与远程连接，复用缓存或并行发现，过滤禁用项和重名项后返回工具列表。
 async def load_mcp_tools_from_servers(
     local_server_url: str | None,
     remote_servers: list | None = None,
@@ -233,6 +247,7 @@ async def load_mcp_tools_from_servers(
         }
 
     now = time.monotonic()
+    # raw_by_conn 暂存每个连接的原始发现结果，pending 记录当前没有缓存、必须请求的连接。
     raw_by_conn: dict[str, list[StructuredTool]] = {}
     pending: dict[str, dict] = {}
     for name, conn in connections.items():
@@ -243,6 +258,7 @@ async def load_mcp_tools_from_servers(
             pending[name] = conn
             continue
         raw_by_conn[name] = cached[0]
+        # 已有缓存但过期：先用旧清单，后台刷新，减少本轮等待首段输出的时间。
         if cached[1] <= now:
             # 过期但可用：先返回旧列表，后台刷新，别让本轮首 token 等重建连
             _schedule_refresh(name, conn, ttl_seconds)
@@ -265,6 +281,7 @@ async def load_mcp_tools_from_servers(
             _store_tools(_cache_key(conn), result, ttl_seconds)
 
     tools_all: list[StructuredTool] = []
+    # 跨服务记录已采用的工具名，保持同一个名称只暴露一次。
     seen_names: set[str] = set()
     skipped_all: list[str] = []
     for name in connections:
@@ -293,6 +310,7 @@ async def load_mcp_tools_from_servers(
     return tools_all
 
 
+# 单一本地 MCP 服务的兼容包装，内部复用多服务发现流程。
 async def load_mcp_tools_from_server(
     mcp_server_url: str,
     *,
@@ -309,6 +327,7 @@ async def load_mcp_tools_from_server(
     )
 
 
+# 只测试一个 MCP 连接并列出工具，用于配置检查，不调用聊天模型。
 async def probe_mcp_tools(
     url: str,
     *,

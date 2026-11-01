@@ -1,3 +1,5 @@
+# 学习导航：把只读探索子代理接到官方 Agent 的一个工具中；内部仍复用 ExploreReadonlyRunner 的短循环。
+# 子代理进度通过 ToolRuntime.stream_writer 写入 custom 流，最后再把总结作为工具结果交回父 Agent。
 """阶段 5：只读子代理的**单工具包装**（``explore_readonly``）+ 带内 ``custom`` 通道。
 
 对应 ``docs/阶段5-MCP与子代理与视觉设计备忘.md`` §2 与实施清单第 4 项，
@@ -96,6 +98,7 @@ EXPLORE_READONLY_DESCRIPTION = (
 """逐字复刻 ``app/agent/tools/registry.py:539-544`` 的工具描述（父模型可见文本不变）。"""
 
 
+# 把子代理事件逐字段转成可写入 custom 流的字典，保持项目事件字段含义。
 def subagent_event_payload(event: Any) -> dict[str, Any]:
     """把 runner 的 ``StreamEventPayload`` 转成 ``custom`` 帧 payload（**逐字段**）。
 
@@ -128,6 +131,7 @@ def subagent_event_payload(event: Any) -> dict[str, Any]:
     return payload
 
 
+# 取运行时的自定义事件写入函数；没有此通道时明确报错，避免进度静默丢失。
 def _require_writer(runtime: Any) -> Callable[[Any], None]:
     """取 ``runtime.stream_writer`` 并断言它**存在且可调用**。
 
@@ -160,22 +164,26 @@ def _require_writer(runtime: Any) -> Callable[[Any], None]:
     return writer
 
 
+# 包装 custom 写入函数，统一转发子代理进度。
 class SubagentEventCollector:
     """把 runner 事件转自定义帧的**可替换 sink**（便于直接对工具函数做单元测试）。
 
     生产路径用 ``runtime.stream_writer``；测试可以传一个 list.append。
     """
 
+    # 保存当前图运行提供的写入函数，不新建独立网络通道。
     def __init__(self, writer: Callable[[Any], None]) -> None:
         self._writer = writer
         self.frames: list[dict[str, Any]] = []
 
+    # 转换一个子代理事件并立即写入父图的 custom 事件流。
     def emit(self, event: Any) -> None:
         payload = subagent_event_payload(event)
         self.frames.append(payload)
         self._writer(payload)
 
 
+# 遍历子代理事件并转发，收集最终总结及状态返回给外层工具。
 async def _run_subagent_stream(
     *,
     runner: Any,
@@ -210,6 +218,7 @@ async def _run_subagent_stream(
     return summary, status
 
 
+# 整理子代理结束事件的关联 ID、总结和状态，方便将结果归属到父调用。
 def _done_payload(*, parent_tool_id: str, summary: str, status: str) -> Any:
     from app.schemas.agent import StreamEventPayload
 
@@ -221,6 +230,7 @@ def _done_payload(*, parent_tool_id: str, summary: str, status: str) -> Any:
     )
 
 
+# 构造父 Agent 可调用的 explore_readonly；只给内部 runner 保留白名单只读能力。
 def build_explore_readonly_agent_tool(
     *,
     llm: Any,
@@ -258,6 +268,8 @@ def build_explore_readonly_agent_tool(
         client_context=client_context,
     )
 
+    # 真正的只读探索工具协程：用 query/focus_path 启动子代理，并将进度写回父图。
+    # ToolRuntime 由框架注入，模型只需要填写查询和可选路径。
     async def explore_readonly(
         query: str,
         focus_path: str | None = None,

@@ -1,3 +1,5 @@
+# 学习导航：标注相关 HTTP 接口：参数验证与模型对象创建在接口层，计划/映射等计算交给 annotation 服务层。
+# 这些是专项服务接口，不是父 Agent 的 create_agent 工厂。
 import base64
 import logging
 
@@ -32,6 +34,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/agent/annotation", tags=["agent-annotation"])
 
 
+# 把模型错误转换成 HTTP 错误：请求参数问题用 400，其他上游调用失败通常用 502。
 def _http_from_llm_error(exc: Exception) -> HTTPException:
     msg = str(exc)
     if isinstance(exc, BadRequestError):
@@ -51,6 +54,7 @@ def _http_from_llm_error(exc: Exception) -> HTTPException:
     )
 
 
+# 检查请求传来的模型配置并创建 ChatOpenAI；实际网络请求在后续 ainvoke/astream 时发生。
 def _require_direct_llm(
     *,
     api_key: str,
@@ -74,6 +78,7 @@ def _require_direct_llm(
     )
 
 
+# 不用 LLM，直接以检测类名/OCR 规则尝试映射标签。
 @router.post("/map-heuristic", summary="启发式检测框映射（无 LLM）")
 async def api_map_heuristic(
     body: HeuristicMapRequest,
@@ -86,6 +91,7 @@ async def api_map_heuristic(
     return {"data": {"mappings": mappings, "method": "heuristic"}}
 
 
+# 把请求中的候选文件、标签和选中实例交给修改准备服务，返回结构化操作。
 @router.post("/mutation-prepare", summary="标注变更准备（改标签/删框，单次 LLM）")
 async def api_mutation_prepare(
     body: MutationPrepareRequest,
@@ -132,6 +138,7 @@ async def api_mutation_prepare(
         raise _http_from_llm_error(exc) from exc
 
 
+# 为规划场景调用一次批量准备服务，返回有效选图与计划；此接口不直接运行检测和写盘。
 @router.post("/batch-prepare", summary="批量准备（范围+计划，单次 LLM）")
 async def api_batch_prepare(
     body: BatchPrepareRequest,
@@ -186,6 +193,7 @@ async def api_batch_prepare(
         raise _http_from_llm_error(exc) from exc
 
 
+# 根据 use_vision 与 supports_vision 决定是否创建视觉模型，再交给统一映射服务。
 @router.post("/map-detection-boxes", summary="Fusion 统一检测框映射（启发式或逐框视觉）")
 async def api_map_detection_boxes(
     body: MapDetectionBoxesRequest,
@@ -194,6 +202,7 @@ async def api_map_detection_boxes(
     try:
         provider_is_vision = body.supports_vision
         use_vision_requested = bool(body.use_vision)
+        # 用户想用视觉与声明的模型能力同时满足才启用，否则走无视觉的映射路径。
         use_vision = use_vision_requested and provider_is_vision
         llm = None
         if use_vision:
@@ -260,6 +269,7 @@ async def api_map_detection_boxes(
         raise _http_from_llm_error(exc) from exc
 
 
+# 优先读本地图片，base64 兜底，压缩后生成 data URL；明确传图但读取失败时返回 400。
 def _build_generate_image_data_url(
     body: LlmGenerateRequest,
     settings,
@@ -296,6 +306,7 @@ def _build_generate_image_data_url(
         return f"data:{body.image_mime_type};base64,{base64.b64encode(raw).decode('ascii')}"
 
 
+# 为 caption 等生成任务组装系统/用户消息和可选图片，等待完整响应后返回文字内容。
 @router.post("/llm-generate", summary="通用 LLM 生成代理（caption/cot/instruction 等）")
 async def api_llm_generate(
     body: LlmGenerateRequest,
@@ -308,6 +319,7 @@ async def api_llm_generate(
             model=body.model,
             temperature=body.temperature,
         )
+        # bind 在本次调用对象上附加输出 token 上限，还没有发送模型请求。
         llm = llm.bind(max_tokens=body.max_tokens)
 
         messages = []

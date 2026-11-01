@@ -1,8 +1,10 @@
+# 学习导航：专项标注 HTTP 请求模型，约束字段长度、阈值范围与默认值，供 api/v1/annotation_agent.py 使用。
 from typing import Any
 
 from pydantic import BaseModel, Field
 
 
+# 标注接口需要的精简项目快照，保留项目类型与标签目录。
 class AnnotationProjectSnapshotInput(BaseModel):
     project_id: str = Field(min_length=1, max_length=64)
     name: str = ""
@@ -11,6 +13,7 @@ class AnnotationProjectSnapshotInput(BaseModel):
     labels: list[dict[str, Any]] = Field(default_factory=list)
 
 
+# 一张可选图片的相对路径与显示信息；服务会以候选清单过滤模型选图结果。
 class ImageCandidateInput(BaseModel):
     relative_path: str
     name: str = ""
@@ -18,6 +21,7 @@ class ImageCandidateInput(BaseModel):
     index: int = 0
 
 
+# 各标注模型接口共享的配置字段，子类在此基础上补充任务参数。
 class AnnotationLlmBaseRequest(BaseModel):
     provider_id: str = Field(min_length=1, max_length=64)
     # 前端直传模式：当 Electron 本地配置与后端 DB 不同步时，直接传入凭据，跳过 DB 查询
@@ -27,6 +31,7 @@ class AnnotationLlmBaseRequest(BaseModel):
     supports_vision: bool = False
 
 
+# 准备已有标注修改的请求，包含需求、会话文字、候选文件与选中实例。
 class MutationPrepareRequest(AnnotationLlmBaseRequest):
     user_request: str = Field(min_length=1, max_length=20_000)
     session_id: str | None = Field(default=None, max_length=64)
@@ -38,6 +43,7 @@ class MutationPrepareRequest(AnnotationLlmBaseRequest):
     project: AnnotationProjectSnapshotInput | None = None
 
 
+# 规划接口的请求，包含候选图片、显式选图、检测模型目录和默认阈值。
 class BatchPrepareRequest(AnnotationLlmBaseRequest):
     """Single-shot scope + plan (replaces separate parse-task / parse-scope / create-plan in batch)."""
 
@@ -57,12 +63,14 @@ class BatchPrepareRequest(AnnotationLlmBaseRequest):
     project: AnnotationProjectSnapshotInput | None = None
 
 
+# 规则映射所需的框、候选标签与 OCR 文字，无需实际模型调用。
 class HeuristicMapRequest(AnnotationLlmBaseRequest):
     boxes: list[dict[str, Any]] = Field(default_factory=list)
     label_candidates: list[dict[str, Any]] = Field(default_factory=list)
     ocr_text: str = ""
 
 
+# 框到标签的统一映射请求，可提供视觉开关、范围、策略和原图。
 class MapDetectionBoxesRequest(AnnotationLlmBaseRequest):
     """Fusion-style unified mapping (heuristic or vision_crop only)."""
 
@@ -80,6 +88,7 @@ class MapDetectionBoxesRequest(AnnotationLlmBaseRequest):
     mime_type: str = "image/jpeg"
 
 
+# 生成类请求，包含系统/用户提示、输出上限和可选图片，供 caption 等任务使用。
 class LlmGenerateRequest(AnnotationLlmBaseRequest):
     """通用 LLM 生成代理：供 caption/cot/instruction 等生成类标注调用。"""
 

@@ -1,3 +1,4 @@
+# 学习导航：视觉回退公用辅助函数：定位图片，执行读图工具，并在需要时补充真正的多模态图片消息。
 """Vision bootstrap path resolution and tool execution helpers for assist chat."""
 
 from __future__ import annotations
@@ -22,6 +23,7 @@ from app.core.config import Settings
 from app.schemas.agent import ClientContextInput, StreamEventPayload
 
 
+# 从客户端上下文取当前图片的相对路径，没有时返回空字符串。
 def pick_vision_relative_path(
     client_context: ClientContextInput | None,
 ) -> str:
@@ -33,6 +35,7 @@ def pick_vision_relative_path(
     return ""
 
 
+# 通过正则在用户文字中查找带图片后缀的路径；它只是路径提取，不代表文件一定存在。
 def vision_relative_from_user_text(user_content: str) -> str:
     """Extract data/foo.jpg style path from user message when understanding is missing."""
     import re
@@ -47,6 +50,7 @@ def vision_relative_from_user_text(user_content: str) -> str:
     return match.group(1).replace("\\", "/")
 
 
+# 用工作区路径规则验证文件，再检查图片后缀，判断是否可以进入自动读图。
 def can_bootstrap_vision(
     client_context: ClientContextInput | None,
     relative_path: str,
@@ -57,6 +61,7 @@ def can_bootstrap_vision(
     return resolved.suffix.lower() in IMAGE_SUFFIXES
 
 
+# 运行读图函数并输出开始/结果事件，同时补 ToolMessage；视觉模型再追加带图片的 HumanMessage。
 async def stream_vision_tool_execution(
     *,
     tool_id: str,

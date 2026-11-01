@@ -1,3 +1,5 @@
+# 学习导航：工作区文本、图片、文档读取，以及文件变更提案的准备。
+# write/str_replace/delete/move 函数返回提案载荷，确认后的实际磁盘修改由客户端完成。
 """工作区文件读取与写入实现：文本/代码、文档（PDF/DOCX）、图片（视觉）、写文件提案。
 
 由 registry 注册为 LLM 工具；视觉与写文件相关辅助函数供 assist_service / assist_vision 使用：
@@ -47,12 +49,14 @@ DOCUMENT_SUFFIXES = frozenset({".pdf", ".docx"})
 MAX_LINE_DISPLAY_CHARS = 2000
 
 
+# 截断异常长的单行，防止压缩 JSON 等内容一次占满工具输出。
 def _cap_line(line: str) -> str:
     if len(line) <= MAX_LINE_DISPLAY_CHARS:
         return line
     return f"{line[:MAX_LINE_DISPLAY_CHARS]}…[行已截断，共 {len(line)} 字符]"
 
 
+# 按一基行号流式读取指定区间，只保留需要的行并记录是否被截断。
 def _read_line_window(
     resolved: Path,
     start: int,
@@ -92,6 +96,7 @@ def _read_line_window(
     return [], None, False, f"「{resolved.name}」不是 UTF-8 文本，暂不支持读取。"
 
 
+# 处理显式行区间的读取和说明，让读取后半段代码不受文件头部预截断影响。
 def _read_ranged_text(
     resolved: Path,
     size: int,
@@ -138,6 +143,7 @@ def _read_ranged_text(
     return header + "\n".join(numbered)
 
 
+# 解析合法路径后读取 UTF-8 文本，按配置限制字节/行数，也支持指定起止行。
 def read_workspace_text_file(
     client_context: ClientContextInput | None,
     path: str,
@@ -212,6 +218,7 @@ def read_workspace_text_file(
     return header + "\n".join(numbered)
 
 
+# 读取合法图片的尺寸等信息，返回带内部路径标记的工具结果，供视觉中间件继续加载。
 def read_image_for_vision_tool(
     client_context: ClientContextInput | None,
     path: str,
@@ -256,6 +263,7 @@ def read_image_for_vision_tool(
     return json.dumps(payload, ensure_ascii=False)
 
 
+# 选择 PDF 或 DOCX 文本提取器，并按配置限制页面或正文长度。
 def read_document_file(
     client_context: ClientContextInput | None,
     path: str,
@@ -296,6 +304,7 @@ def read_document_file(
     return header + text
 
 
+# 用 PDF 读取库逐页提取文字；扫描版图片 PDF 不会在这里自动 OCR。
 def _extract_pdf_text(path: Path, *, max_pages: int) -> tuple[str, str]:
     from pypdf import PdfReader
 
@@ -310,6 +319,7 @@ def _extract_pdf_text(path: Path, *, max_pages: int) -> tuple[str, str]:
     return "\n\n".join(parts), meta
 
 
+# 用 DOCX 读取库收集非空正文段落，返回纯文本与段落数量；当前实现不遍历表格。
 def _extract_docx_text(path: Path) -> tuple[str, str]:
     from docx import Document
 
@@ -318,6 +328,7 @@ def _extract_docx_text(path: Path) -> tuple[str, str]:
     return "\n\n".join(paragraphs), f"DOCX 段落数：{len(paragraphs)}"
 
 
+# 仅从读图工具的有效 JSON 结果中取内部图片绝对路径。
 def extract_vision_path_from_tool_result(tool_name: str, result_text: str) -> str | None:
     """从 read_image_for_vision 工具结果中提取图片绝对路径。"""
     if tool_name != VISION_TOOL_NAME:
@@ -335,6 +346,7 @@ def extract_vision_path_from_tool_result(tool_name: str, result_text: str) -> st
     return str(candidate) if candidate.is_file() else None
 
 
+# 去掉仅供后端加载图片使用的内部标记，保留对用户可读的读图信息。
 def format_vision_tool_result_for_display(result_text: str) -> str:
     """格式化视觉工具结果供前端展示，移除内部路径标记。"""
     try:
@@ -348,6 +360,7 @@ def format_vision_tool_result_for_display(result_text: str) -> str:
     return json.dumps(display, ensure_ascii=False, indent=2)
 
 
+# 复用统一路径模块，把校验后的目标转为提案展示所需的相对路径。
 def _relative_display_path(
     client_context: ClientContextInput | None,
     resolved: Path,
@@ -363,6 +376,7 @@ def _relative_display_path(
 PendingProposalContents = dict[str, tuple[str | None, str]]
 
 
+# 检查目标路径、后缀和内容等条件，再准备写入提案；本函数不会直接把内容写到磁盘。
 def write_workspace_file_tool(
     client_context: ClientContextInput | None,
     relative_path: str,
@@ -373,6 +387,7 @@ def write_workspace_file_tool(
 
     不直接写盘——写操作由前端在用户确认后执行。
     """
+    # 先把用户/模型给的路径解析到允许工作区，解析失败就返回错误，不产生有效提案。
     resolved, err = resolve_workspace_write_path(client_context, relative_path)
     if resolved is None:
         return build_tool_result(
@@ -403,6 +418,7 @@ def write_workspace_file_tool(
         "请勿在回复中声称文件已创建或已保存。"
     )
     if pending_proposals is not None:
+        # 只更新内存中的提案缓存；None 表示此写入提案没有记录磁盘原文快照。
         pending_proposals[str(resolved)] = (None, content)
     return build_tool_result(
         ok=True,
@@ -421,6 +437,8 @@ def write_workspace_file_tool(
     )
 
 
+# 读取当前内容，检查 old_string 的匹配次数，生成替换后的完整文件提案。
+# 同一请求已有暂存提案时优先基于该内容继续修改，避免后一个提案覆盖前一个修改。
 def str_replace_workspace_file_tool(
     client_context: ClientContextInput | None,
     relative_path: str,
@@ -490,6 +508,7 @@ def str_replace_workspace_file_tool(
 
     # 基线接力：同路径已有未落盘提案且磁盘未再被改动时，以提案内容为基线，
     # 使本轮的多处修改在同一份提案里累积。
+    # base 是本次精确替换采用的内容，默认是磁盘原文，也可能接力采用当前请求的提案内容。
     base = original
     base_from_pending = False
     if pending_proposals is not None:
@@ -503,6 +522,7 @@ def str_replace_workspace_file_tool(
                 # 磁盘在提案生成后又被改动（如用户手动保存），旧提案基线过期。
                 pending_proposals.pop(str(resolved), None)
 
+    # 精确匹配会区分空格、换行与缩进；默认要求唯一匹配，避免误改同样文字的其他位置。
     count = base.count(old_string)
     if count == 0:
         hint = (
@@ -523,6 +543,7 @@ def str_replace_workspace_file_tool(
                 f"{hint}"
             ),
         )
+    # 有多处相同文本且没有明确允许全部替换时，先反馈歧义给模型补充上下文。
     if count > 1 and not replace_all:
         return build_tool_result(
             ok=False,
@@ -562,6 +583,7 @@ def str_replace_workspace_file_tool(
     )
 
 
+# 检查目标文件及暂存状态，返回删除提案；用户确认之前磁盘文件仍保留。
 def delete_workspace_file_tool(
     client_context: ClientContextInput | None,
     relative_path: str,
@@ -622,6 +644,7 @@ def delete_workspace_file_tool(
     )
 
 
+# 校验原路径、新路径和冲突状态，准备移动/重命名提案，不在此执行实际移动。
 def move_workspace_file_tool(
     client_context: ClientContextInput | None,
     relative_path: str,
@@ -716,6 +739,7 @@ def move_workspace_file_tool(
     )
 
 
+# 识别文件工具返回的内部提案数据，交给流适配器转换成提案事件。
 def extract_doc_proposal_from_tool_result(
     tool_name: str, result_text: str
 ) -> dict | None:
@@ -740,5 +764,6 @@ def extract_doc_proposal_from_tool_result(
     }
 
 
+# 从文件工具 JSON 中提取摘要，避免直接展示全部内部提案内容。
 def format_write_tool_result_for_display(result_text: str) -> str:
     return format_tool_result_for_display(result_text)

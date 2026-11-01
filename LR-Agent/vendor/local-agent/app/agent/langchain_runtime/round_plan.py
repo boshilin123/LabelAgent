@@ -1,3 +1,4 @@
+# 学习导航：本轮工具调用的纯规则计算。先决定哪些执行、哪些交给客户端、哪些拦截，再由中间件执行计划。
 """阶段 2 纯函数层：「本轮计划」——严格复刻旧 ``ToolLoopRunner.execute_round`` 的决策顺序。
 
 设计边界（对应 ``docs/阶段2-业务middleware设计备忘.md`` §2 与阶段 2 实施清单第 1 项）：
@@ -79,6 +80,7 @@ COALESCED_TEMPLATE = (
 """逐字复刻 ``tool_loop.py:580-581``；``{paths}`` 用 ``str(list)`` 填充（与旧路径同）。"""
 
 
+# 一条调用及其最终处理结果；result_json 有值表示已用结果回答，后续无需执行原工具。
 @dataclass(frozen=True)
 class RoundToolCall:
     """本轮某个工具调用的最终去向。
@@ -94,10 +96,12 @@ class RoundToolCall:
     arguments: dict[str, Any]
     result_json: str | None = None
 
+    # 判断这条调用是否已被规则处理并抑制执行。
     @property
     def suppressed(self) -> bool:
         return self.result_json is not None
 
+    # 为被抑制的调用生成配对 ToolMessage，向模型说明原因；普通待执行调用返回 None。
     @property
     def tool_message(self) -> ToolMessage | None:
         if self.result_json is None:
@@ -105,6 +109,7 @@ class RoundToolCall:
         return ToolMessage(content=self.result_json, tool_call_id=self.tool_call_id)
 
 
+# 同一轮模型输出的分类结果，保存原始调用顺序与合并后的参数。
 @dataclass(frozen=True)
 class RoundPlan:
     """一轮模型输出对应的完整执行计划（不可变、可安全放进 state 通道）。"""
@@ -137,6 +142,7 @@ class RoundPlan:
 
     already_completed_ids: tuple[str, ...] = ()
 
+    # 把被拦截/合并的调用转换成消息，交给 after_model 补进对话。
     @property
     def injected_messages(self) -> list[ToolMessage]:
         """``after_model`` 要注入的 ``ToolMessage``，顺序 = 旧路径产出顺序。"""
@@ -146,10 +152,12 @@ class RoundPlan:
             if call.tool_message is not None
         ]
 
+    # 检查模型本轮是否提出过工具调用。
     @property
     def has_any_call(self) -> bool:
         return bool(self.calls)
 
+    # 用数量核对每个调用是否都有分类去向，方便检查计划是否遗漏。
     @property
     def all_calls_resolved_here(self) -> bool:
         """本轮每个调用都有归宿（执行 / 挂起 / 抑制），不存在未处理项。"""
@@ -157,6 +165,7 @@ class RoundPlan:
             self.calls
         )
 
+    # 从被抑制调用的 JSON 结果中读出状态码，供调试和观测使用。
     @property
     def suppression_reasons(self) -> tuple[str, ...]:
         """被抑制调用各自的 ``status``（从结果 JSON 里取，顺序同 :attr:`suppressed`）。"""
@@ -174,6 +183,7 @@ class RoundPlan:
         return tuple(reasons)
 
 
+# 把原始调用参数整理成字典，避免下游反复兼容 JSON 字符串与字典。
 def _args_of(call: Mapping[str, Any]) -> dict[str, Any]:
     raw = call.get("args")
     if isinstance(raw, dict):
@@ -187,11 +197,13 @@ def _args_of(call: Mapping[str, Any]) -> dict[str, Any]:
     return {}
 
 
+# 生成同名工具及目标路径的比较键，帮助识别同轮重复请求。
 def _duplicate_scope(name: str, arguments: Mapping[str, Any]) -> tuple[str, frozenset[str]]:
     """同范围判定键：``(name, extract_call_paths(args))``（``tool_loop.py:600``）。"""
     return (name, extract_call_paths(dict(arguments)))
 
 
+# 把同轮多个自动标注调用的目标合并到首个调用，减少重复启动客户端任务。
 def _coalesce_auto_annotate(
     calls: Sequence[RoundToolCall],
 ) -> tuple[RoundToolCall, list[RoundToolCall], list[str]]:
@@ -230,6 +242,8 @@ def _coalesce_auto_annotate(
     return merged_first, list(calls[1:]), merged_paths
 
 
+# 读取模型消息、已完成 ID 和阶段规则，计算执行/挂起/抑制清单。
+# 这是纯计算函数，不访问模型、不实际执行工具，便于单独验证规则。
 def plan_round(
     message: AnyMessage | None,
     *,

@@ -1,3 +1,4 @@
+# 学习导航：Assist 的公共规则和旧循环组件。task_phase、proposal_streamer、explore_readonly 等仍供默认运行时复用。
 """Assist 模式流式推理子模块。
 
 职责划分：

@@ -1,3 +1,5 @@
+# 学习导航：legacy 主循环的工具执行器；其中部分工具/子代理/视觉辅助逻辑仍被其他模块复用。
+# 学习默认 Agent 时先读 langchain_runtime，再回来看这里的手工循环如何被框架替代。
 """多轮 LLM ↔ 工具循环：stream_chunks → execute_round → 追加 ToolMessage。
 
 拆分为两个阶段：
@@ -51,6 +53,7 @@ from app.core.config import Settings
 from app.schemas.agent import StreamEventPayload
 
 
+# 兼容模型返回字典或对象，抽取工具名称和调用 ID。
 def _api_call_name_and_id(call: object) -> tuple[str, str]:
     if isinstance(call, dict):
         name = str(call.get("name") or "").strip()
@@ -80,6 +83,7 @@ PARALLEL_SYNC_TOOLS = frozenset(
 )
 
 
+# 按名字查找函数并执行，兼容同步函数和协程；异常统一转换为工具结果字符串。
 async def _invoke_tool_fn(name: str, args: dict, fn_map: dict[str, object]) -> str:
     fn = fn_map.get(name)
     try:
@@ -104,6 +108,7 @@ async def _invoke_tool_fn(name: str, args: dict, fn_map: dict[str, object]) -> s
         )
 
 
+# 兼容路径中要求模型重新发起一次正式工具调用，替代只在正文里描述“我要调用”。
 async def _force_tool_call_once(
     llm: ChatOpenAI,
     tools: list[StructuredTool],
@@ -131,12 +136,14 @@ async def _force_tool_call_once(
     return AIMessage(content=full_text, tool_calls=tool_calls), resolved
 
 
+# 判断对象是否能提供子代理 stream 接口，兼容正式 runner 与测试替身。
 def _is_explore_runner(runner: object) -> bool:
     return isinstance(runner, ExploreReadonlyRunner) or callable(
         getattr(runner, "stream", None)
     )
 
 
+# 将子代理总结和结束状态包装成统一工具结果 JSON。
 def _explore_result_text(summary: str, status: str) -> str:
     return build_tool_result(
         ok=status == "done",
@@ -146,6 +153,7 @@ def _explore_result_text(summary: str, status: str) -> str:
     )
 
 
+# 并行读取多条事件流，按实际到达顺序合并输出；结束时清理尚未完成的读取任务。
 async def _merge_async_iterators(
     streams: list[AsyncIterator[StreamEventPayload]],
 ) -> AsyncIterator[StreamEventPayload]:
@@ -158,6 +166,7 @@ async def _merge_async_iterators(
 
     queue: asyncio.Queue[StreamEventPayload | None] = asyncio.Queue()
 
+    # 读取一条子流并写入共享队列，结束时用 None 通知该子流已结束。
     async def _pump(gen: AsyncIterator[StreamEventPayload]) -> None:
         try:
             async for event in gen:
@@ -181,6 +190,7 @@ async def _merge_async_iterators(
         await asyncio.gather(*tasks, return_exceptions=True)
 
 
+# 发出父工具开始事件，再转发内部子代理进度；父结果与消息追加由调用方处理。
 async def _stream_explore_events(
     *,
     tool_id: str,
@@ -215,6 +225,7 @@ async def _stream_explore_events(
     )
 
 
+# 执行一条后端工具调用，输出开始/结果事件，并处理文件提案及视觉结果的附加事件。
 async def _stream_tool_execution(
     *,
     tool_id: str,
@@ -347,9 +358,11 @@ async def _stream_tool_execution(
         )
 
 
+# 保存一次旧流程运行的工具、阶段、去重和视觉标记，并提供分片读取与轮末执行方法。
 class ToolLoopRunner:
     """多轮 LLM ↔ 工具循环执行器。"""
 
+    # 保存本轮依赖和状态；llm 负责模型请求，tools 提供参数说明，fn_map 提供实际函数。
     def __init__(
         self,
         llm: ChatOpenAI,
@@ -373,10 +386,12 @@ class ToolLoopRunner:
         self.completed_tools: set[str] = set()
         self.tool_choice_retries = 0
 
+    # 记录已回传结果的调用 ID；只拦同一个 ID，不阻止同名工具之后的新调用。
     def mark_completed(self, tool_call_ids: set[str]) -> None:
         """标记已 resume 的 tool_call_id（允许同名新调用）。"""
         self.completed_tools |= tool_call_ids
 
+    # 只在必要且允许时强制重试一次正式调用，避免正文伪调用或无限重试。
     async def _maybe_force_tool_call(
         self,
         full_text: str,
@@ -398,6 +413,7 @@ class ToolLoopRunner:
         self.tool_choice_retries += 1
         return await _force_tool_call_once(self.llm, self.tools, messages, full_text)
 
+    # 被规则拦截时仍输出明确结果，并加入 ToolMessage，让模型知道为什么没有执行。
     async def _yield_blocked_call(
         self,
         call: ResolvedToolCall,
@@ -426,6 +442,7 @@ class ToolLoopRunner:
         )
         messages.append(ToolMessage(content=result_text, tool_call_id=call.tool_call_id))
 
+    # 将工具绑定到模型后读取流式分片，同时输出文字和正在生成的提案片段。
     async def stream_chunks(
         self,
         messages: list,
@@ -445,6 +462,7 @@ class ToolLoopRunner:
             for proposal_event in interceptor.on_chunk(chunk):
                 yield proposal_event
 
+    # 旧流程的一轮决策：解析调用、检查阶段、合并去重，再执行后端工具或通知客户端接手。
     async def execute_round(
         self,
         gathered: AIMessage,
@@ -635,6 +653,7 @@ class ToolLoopRunner:
         ]
         precomputed: dict[str, str] = {}
         if parallel_calls:
+            # 并行执行一条允许并发的只读调用，返回（调用 ID，结果文字），随后仍按调用顺序输出事件。
             async def _run_parallel(call: ResolvedToolCall) -> tuple[str, str]:
                 text = await _invoke_tool_fn(call.name, call.arguments, self.fn_map)
                 return call.tool_call_id, text
@@ -664,6 +683,7 @@ class ToolLoopRunner:
         if explore_calls:
             finals: dict[str, tuple[str, str]] = {}
 
+            # 转发一条探索子流并记录最终总结与状态，供父循环统一补工具结果。
             async def _tracked_explore(
                 call: ResolvedToolCall,
             ) -> AsyncIterator[StreamEventPayload]:

@@ -1,3 +1,5 @@
+# 学习导航：对视觉标签映射做确定性检查：标签 ID、实例重复占用及解释文字是否与选择矛盾。
+# 这些规则可检查明显不一致，但不能替代人工确认视觉识别是否正确。
 """视觉映射结果校验与重试辅助（规则驱动，标签名来自候选集）。"""
 
 from __future__ import annotations
@@ -7,6 +9,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 
+# 列出可被程序识别的问题类型，供重试反馈和日志统一使用。
 class MappingIssueCode(str, Enum):
     DUPLICATE_LABEL = "duplicate_label"
     REASON_NAME_MISMATCH = "reason_name_mismatch"
@@ -14,6 +17,7 @@ class MappingIssueCode(str, Enum):
     INVALID_LABEL_ID = "invalid_label_id"
 
 
+# 记录某一个检测框的问题：框索引、问题码和说明。
 @dataclass
 class MappingIssue:
     box_index: int
@@ -21,14 +25,17 @@ class MappingIssue:
     message: str
 
 
+# 汇总一轮映射检查发现的问题，并提供按框查询的方法。
 @dataclass
 class ValidationResult:
     issues: list[MappingIssue] = field(default_factory=list)
 
+    # 没有问题记录时返回 True，供调用方决定是否需要重试。
     @property
     def ok(self) -> bool:
         return not self.issues
 
+    # 只取指定框的问题，避免把其他框的错误反馈给本框的重试请求。
     def issues_for_box(self, box_index: int) -> list[MappingIssue]:
         return [i for i in self.issues if i.box_index == box_index]
 
@@ -40,6 +47,7 @@ _REASON_CONTRADICT_RE = re.compile(
 )
 
 
+# 建立小写标签名到真实 ID 的索引，用来核对 reason 中提到的标签。
 def _name_to_id(candidates: list[dict]) -> dict[str, str]:
     out: dict[str, str] = {}
     for c in candidates:
@@ -50,6 +58,7 @@ def _name_to_id(candidates: list[dict]) -> dict[str, str]:
     return out
 
 
+# 按大小写不敏感的子串查找候选名称并去重，属于文字规则而非再次调用模型。
 def find_label_names_in_text(text: str, candidates: list[dict]) -> list[str]:
     """在 reason 等文本中查找出现的候选标签名（大小写不敏感子串）。"""
     raw = (text or "").lower()
@@ -70,12 +79,14 @@ def find_label_names_in_text(text: str, candidates: list[dict]) -> list[str]:
     return hits
 
 
+# 把问题码和说明合成短文本，追加到下次单框模型请求。
 def format_issues_for_retry(issues: list[MappingIssue]) -> str:
     if not issues:
         return ""
     return "；".join(f"[{i.code}] {i.message}" for i in issues)
 
 
+# 尝试排除其他框占用的 ID，并保留本框当前 ID；若候选全被排除则回退原列表。
 def candidates_for_retry_box(
     candidates: list[dict],
     used_label_ids: set[str],
@@ -95,6 +106,7 @@ def candidates_for_retry_box(
     return filtered if filtered else candidates
 
 
+# 检查映射结果的合法性；实例标签场景还检查同图重复 ID，返回问题清单而不直接改结果。
 def validate_vision_mappings(
     mappings: list[dict],
     candidates: list[dict],

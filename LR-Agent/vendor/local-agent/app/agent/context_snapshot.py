@@ -1,3 +1,5 @@
+# 学习导航：把结构化的项目快照、工作区信息、技能目录与提案状态整理成系统提示词。
+# 提示词为模型提供背景；能否实际执行工具还要经过工具白名单、路径校验和中间件规则。
 """Assist 模式系统提示词组装：运行时身份、任务指令与客户端上下文快照。"""
 from __future__ import annotations
 
@@ -50,6 +52,7 @@ ASSISTANT_TASK_BASE = """【任务】在 LR-Agent 内完成问答、标注、分
 - 报告与汇总中的每个数字必须来自工具返回或提案明细，禁止估算或凭印象填写。
 - 用简洁中文回复；调用工具前用一两句说明下一步。"""
 
+# 生成当前模型、接口来源和视觉能力的身份说明，避免模型误认自己所用的运行环境。
 def format_runtime_identity_block(
     *,
     model: str,
@@ -72,6 +75,7 @@ def format_runtime_identity_block(
     )
 
 
+# 把项目类型、标签和可用检测模型等快照字段格式化，供模型了解当前标注项目。
 def format_snapshot_for_prompt(snapshot: AnnotationProjectSnapshotInput) -> str:
     labels = snapshot.labels or []
     label_lines = [
@@ -133,6 +137,7 @@ ANNOTATION_CALL_GUIDE = """【标注调用纪律】(auto_annotate)
 - 所有参数以用户本轮原话为依据，禁止凭猜测补值。"""
 
 
+# 为普通工作区助手组合项目约束及工具使用说明。
 def build_workspace_assistant_system_prompt(client_context: ClientContextInput | None) -> str:
     task = WORKSPACE_ASSIST_TASK.format(vision_hint=VISION_HINT)
     parts = [task, FILE_EDIT_GUIDE]
@@ -145,6 +150,7 @@ def build_workspace_assistant_system_prompt(client_context: ClientContextInput |
     return "\n".join(parts)
 
 
+# 为已绑定标注项目的助手组合项目快照与标注约束。
 def build_project_assistant_system_prompt(client_context: ClientContextInput | None) -> str:
     task = ASSISTANT_TASK_BASE.format(vision_hint=VISION_HINT)
     if client_context is None or client_context.annotation_project_snapshot is None:
@@ -156,6 +162,7 @@ def build_project_assistant_system_prompt(client_context: ClientContextInput | N
     )
 
 
+# 只注入技能名称和简介，形成可发现目录；完整技能内容需要后续按需读取。
 def format_skills_catalog_block(
     skills: list[SkillCatalogEntryInput] | None,
 ) -> str:
@@ -179,6 +186,7 @@ def format_skills_catalog_block(
     return "\n".join(lines)
 
 
+# 按是否有标注项目选择基础提示，再加入项目说明、技能、可选记忆索引和提案信息。
 def build_assist_system_prompt(
     client_context: ClientContextInput | None,
     *,

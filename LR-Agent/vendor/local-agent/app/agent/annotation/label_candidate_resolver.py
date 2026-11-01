@@ -1,3 +1,4 @@
+# 学习导航：为逐框标签映射选择候选池：先应用显式范围，再按条件用整图视觉预筛缩小选择范围。
 """标签候选池解析：scope 显式范围 / 可选整图 preflight。"""
 
 from __future__ import annotations
@@ -24,6 +25,7 @@ PREFLIGHT_SYSTEM = """你是视觉标注准备助手。根据整图与用户意�
 只输出 JSON：{"present_label_ids":["..."], "uncertain": false}"""
 
 
+# 同时返回有效候选、来源以及被预筛排除的信息，方便调试为什么只剩这些标签。
 @dataclass
 class LabelPoolResult:
     candidates: list[dict]
@@ -32,6 +34,7 @@ class LabelPoolResult:
     preflight_label_ids: list[str] | None = None
 
 
+# 根据开关、框数量和“候选比框多多少”判断是否需要整图预筛。
 def _should_run_preflight(
     mode: PreflightMode,
     *,
@@ -47,6 +50,7 @@ def _should_run_preflight(
     return extra >= min_extra
 
 
+# 按当前视觉图片配置压缩和编码整图，为预筛请求准备图片块。
 def _image_bytes_to_data_url(image_bytes: bytes, settings: Settings) -> str:
     return image_bytes_to_data_url(
         image_bytes,
@@ -55,6 +59,8 @@ def _image_bytes_to_data_url(image_bytes: bytes, settings: Settings) -> str:
     )
 
 
+# 让视觉模型先判断整图可能出现哪些候选标签，返回（合法标签 ID 列表，是否不确定）。
+# 调用失败、没有合法结果或模型不确定时，不据此缩小候选池。
 async def preflight_label_pool(
     llm: ChatOpenAI,
     image_bytes: bytes,
@@ -108,6 +114,7 @@ async def preflight_label_pool(
     return present, False
 
 
+# 先按结构化范围过滤候选，有图、有模型且满足配置时再做预筛；返回候选与来源说明。
 async def resolve_effective_label_candidates(
     llm: ChatOpenAI | None,
     *,
@@ -124,6 +131,7 @@ async def resolve_effective_label_candidates(
     user_request / intent_summary 不参与候选池缩小（避免 prepare 摘要举例误伤）。
     """
     cfg = settings or get_settings()
+    # scoped 是显式范围后的候选；预筛失败时继续保留它，避免一次失败清空所有标签。
     scoped = filter_label_candidates_by_scope(list(all_candidates), scope)
     source = "scope" if scoped is not all_candidates and len(scoped) < len(all_candidates) else "full"
     excluded: list[str] = []
@@ -149,6 +157,7 @@ async def resolve_effective_label_candidates(
             intent_summary=intent_summary,
             settings=cfg,
         )
+        # 只有模型给出非空且确定的合法标签时，才尝试采用更小的候选集合。
         if not uncertain and present:
             id_set = set(present)
             pref_filtered = [c for c in scoped if str(c.get("id") or "") in id_set]

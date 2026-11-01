@@ -1,3 +1,4 @@
+# 学习导航：质量报告流式接口：校验输入体积、创建模型，再把服务产生的文字事件编码成 SSE。
 import json
 import logging
 from collections.abc import AsyncIterator
@@ -18,6 +19,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/agent/annotation-quality", tags=["annotation-quality"])
 
 
+# 检查模型连接配置并创建开启流式输出的 ChatOpenAI 实例。
 def _require_direct_llm(
     *,
     api_key: str,
@@ -39,6 +41,7 @@ def _require_direct_llm(
     )
 
 
+# 按 UTF-8 编码后的字节数检查报告输入体积，过大则返回 400。
 def _validate_compose_payload(payload: dict, settings: SettingsDep) -> None:
     payload_bytes = len(json.dumps(payload, ensure_ascii=False).encode("utf-8"))
     max_bytes = 512_000
@@ -49,6 +52,7 @@ def _validate_compose_payload(payload: dict, settings: SettingsDep) -> None:
         )
 
 
+# 逐个转发报告事件，成功时追加 done；异常时记录日志并发送 error 事件。
 async def _compose_sse(
     llm,
     *,
@@ -70,6 +74,7 @@ async def _compose_sse(
         yield f"data: {json.dumps(err, ensure_ascii=False)}\n\n"
 
 
+# HTTP 入口：先校验和清洗质量数据，再返回逐段生成报告的 StreamingResponse。
 @router.post("/report/compose/stream", summary="流式撰写标注质量报告")
 async def api_quality_report_compose_stream(
     body: QualityReportComposeRequest,

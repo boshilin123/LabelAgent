@@ -1,3 +1,5 @@
+# 学习导航：中间件把项目规则接入官方图：模型之后规划调用，工具之前再次检查，预算用尽时安排文字收尾。
+# 每次运行可变的数据保存在 state 中，避免多个请求共享同一份轮次计数。
 """阶段 2 业务 middleware：合批去重 / 阶段门禁 / 预算收尾。
 
 对应 ``docs/阶段2-业务middleware设计备忘.md`` §1-§5 与实施清单第 2-7 项。
@@ -117,6 +119,7 @@ RETRYABLE_TOOL_NAMES: tuple[str, ...] = ()
 # ── state 通道 ─────────────────────────────────────────────────────────
 
 
+# 为官方消息状态补充项目字段：本轮计划、执行标记、结束标记和模型调用计数。
 class BusinessRoundState(AgentState):
     """业务 middleware 的 state 扩展。
 
@@ -147,6 +150,7 @@ class BusinessRoundState(AgentState):
 # ── 自定义中间件 1：本轮计划 + 路由 + 兜底门禁 ───────────────────────────
 
 
+# 处理客户端工具挂起、阶段限制和重复调用，连接 round_plan 的规则与框架节点执行。
 class BusinessRoundMiddleware(AgentMiddleware):
     """复刻旧 ``execute_round`` 的「工具执行前」决策（合批 / 去重 / 门禁）。
 
@@ -156,6 +160,7 @@ class BusinessRoundMiddleware(AgentMiddleware):
 
     state_schema = BusinessRoundState
 
+    # 保存默认阶段和已完成 ID；运行时优先从本次 context 读取对应值。
     def __init__(
         self,
         *,
@@ -171,10 +176,12 @@ class BusinessRoundMiddleware(AgentMiddleware):
         self._end_turn_on_deferred = end_turn_on_deferred
 
     # ── 内部：从 runtime / state 取上下文 ────────────────────────────
+    # 从框架 runtime 中取本次运行的上下文对象。
     @staticmethod
     def _context_of(runtime: Any) -> Any:
         return getattr(runtime, "context", None)
 
+    # 读取当前运行的任务阶段，缺失时使用构造函数提供的默认阶段。
     def _phase_ctx_for(self, runtime: Any) -> TaskPhaseContext | None:
         if self._phase_ctx_getter is not None:
             return self._phase_ctx_getter(self._context_of(runtime))
@@ -184,6 +191,7 @@ class BusinessRoundMiddleware(AgentMiddleware):
             return found
         return self._phase_ctx
 
+    # 优先读取本次 context 的已完成 ID，其次读取兼容 extra 字段，最后回退构造参数，用于去重。
     def _completed_for(self, runtime: Any) -> frozenset[str]:
         """已回传结果的 ``tool_call_id`` 集合（跨请求去重，阶段 3 播种）。
 
@@ -209,6 +217,7 @@ class BusinessRoundMiddleware(AgentMiddleware):
                     return frozenset(str(item) for item in seeded)
         return self._completed
 
+    # 根据当前模型消息和上下文调用 plan_round，得到本轮处理方案。
     def _plan_for(self, state: Any, runtime: Any) -> RoundPlan:
         messages = state["messages"] if isinstance(state, dict) else state.messages
         last = messages[-1] if messages else None
@@ -218,6 +227,7 @@ class BusinessRoundMiddleware(AgentMiddleware):
             completed_tool_ids=self._completed_for(runtime),
         )
 
+    # 根据客户端挂起、合并和重复调用结果，判断本轮处理结束后是否应停止继续请求模型。
     @staticmethod
     def _should_end_turn(plan: RoundPlan) -> bool:
         """本轮结束后是否终止回合（阶段 2 需要它才能保证「零后端执行」可观测）。
@@ -239,6 +249,8 @@ class BusinessRoundMiddleware(AgentMiddleware):
         )
 
     # ── hook：after_model（注入抑制用 ToolMessage + 路由）─────────────
+    # 模型给出调用后计算计划，用配对结果回答被抑制调用，并写入本轮状态。
+    # 客户端工具在此表达为挂起，不能误交给服务器 tools 节点产生实际副作用。
     @hook_config(can_jump_to=["end"])
     def after_model(self, state: Any, runtime: Any) -> dict[str, Any] | None:
         """计算本轮计划，注入被抑制调用的 ``ToolMessage``，并决定路由。
@@ -263,6 +275,7 @@ class BusinessRoundMiddleware(AgentMiddleware):
           因此不加任何 jump，让图自然回到模型节点。
         """
         messages = state["messages"] if isinstance(state, dict) else state.messages
+        # last 是刚生成的模型消息；message_id 用来判断这条消息是否已经计算过计划。
         last = messages[-1] if messages else None
         message_id = str(getattr(last, "id", "") or "")
         seen = state.get("round_plan_message_id") if isinstance(state, dict) else None
@@ -278,13 +291,16 @@ class BusinessRoundMiddleware(AgentMiddleware):
             # 因此不加 jump，让图自然回到模型节点。
             return None
 
+        # 先计算本轮分类计划，不在此处直接调用工具函数。
         plan = self._plan_for(state, runtime)
         if not plan.has_any_call:
             return None
 
+        # 钩子返回的是状态更新字典，由框架合并回 state，而不是替换整个对话状态。
         update: dict[str, Any] = {"round_plan": plan}
         if message_id:
             update["round_plan_message_id"] = message_id
+        # 被拦截、合并或去重的调用用配对 ToolMessage 回答；待客户端执行的调用另存于 plan.deferred。
         injected = plan.injected_messages
         if injected:
             update["messages"] = injected
@@ -292,6 +308,7 @@ class BusinessRoundMiddleware(AgentMiddleware):
         end_after = self._end_turn_on_deferred and self._should_end_turn(plan)
         update["round_executed"] = bool(plan.execute_now)
 
+        # 没有合法后端调用需要执行时可直接结束；混合轮要先让合法工具完成，避免被提前跳过。
         if end_after and not plan.execute_now:
             # 本轮没有任何调用该进 ``tools`` 节点（纯挂起 / 纯合并去重轮）：
             # 必须显式 ``jump_to="end"``，否则 ``after_model`` 返回的 ``messages``
@@ -309,6 +326,7 @@ class BusinessRoundMiddleware(AgentMiddleware):
         return update
 
     # ── hook：before_model（两段式回合终止的第一段）────────────────────
+    # 下一次请求模型前检查结束标记；本轮合法工具处理完成后，按计划终止当前回合。
     @hook_config(can_jump_to=["end"])
     def before_model(self, state: Any, runtime: Any) -> dict[str, Any] | None:
         """上一轮标记了「本轮结束即终止」且合法调用已执行完时，在此终止回合。
@@ -334,6 +352,7 @@ class BusinessRoundMiddleware(AgentMiddleware):
         return None
 
     # ── hook：awrap_tool_call（执行层唯一门禁 + 合并参数改写）──────────
+    # 异步工具执行前检查执行归属与任务阶段，必要时使用计划合并后的参数；允许的调用才交给 handler。
     async def awrap_tool_call(self, request: Any, handler: Callable[..., Any]) -> Any:
         """执行层门禁（**后端零执行的最终保证**）。
 
@@ -358,6 +377,7 @@ class BusinessRoundMiddleware(AgentMiddleware):
         args = tool_call.get("args")
         args = dict(args) if isinstance(args, dict) else {}
 
+        # 最后一道执行归属检查：即使框架把客户端工具送到 tools 节点，后端也只返回挂起说明。
         if get_tool_runner(name) is ToolRunner.ASYNC:
             return ToolMessage(
                 content=build_tool_result(
@@ -391,8 +411,10 @@ class BusinessRoundMiddleware(AgentMiddleware):
             if merged is not None and merged != args:
                 tool_call["args"] = merged
                 request = request.override(tool_call=tool_call)
+        # handler 才是真正执行该工具的下一步；前面任意检查返回结果都会阻止走到这里。
         return await handler(request)
 
+    # 同步工具执行入口的同类规则，保证同步调用也遵守执行限制。
     def wrap_tool_call(self, request: Any, handler: Callable[..., Any]) -> Any:
         """同步入口（本项目只走 ``astream``；成对实现以免 sync 路径静默缺失门禁）。"""
         tool_call = dict(request.tool_call or {})
@@ -430,6 +452,7 @@ class BusinessRoundMiddleware(AgentMiddleware):
 # ── 自定义中间件 2：预算收尾 ────────────────────────────────────────────
 
 
+# 达到工具轮数预算后移除可用工具，让模型用文字总结已有结果。
 class BudgetWrapUpMiddleware(AgentMiddleware):
     """复刻 ``assist_service.py:170-188`` 的预算耗尽兜底。
 
@@ -454,12 +477,14 @@ class BudgetWrapUpMiddleware(AgentMiddleware):
 
     state_schema = BusinessRoundState
 
+    # 保存允许的工具轮数，并据此计算进入收尾模式的模型调用序号。
     def __init__(self, *, max_tool_rounds: int) -> None:
         super().__init__()
         if max_tool_rounds < 0:
             raise ValueError("max_tool_rounds 必须 >= 0")
         self._max_tool_rounds = max_tool_rounds
 
+    # 返回开始收尾的调用序号；包含初次模型判断和最终文字收尾所需的余量。
     @property
     def wrap_up_at(self) -> int:
         """进入收尾模式的模型调用序号（1-based）＝ ``max_tool_rounds + 2``。
@@ -479,6 +504,7 @@ class BudgetWrapUpMiddleware(AgentMiddleware):
         """
         return self._max_tool_rounds + 2
 
+    # 从本次 state 取模型调用计数，缺失时按零处理。
     @staticmethod
     def _count(state: Any) -> int:
         if not isinstance(state, dict):
@@ -487,7 +513,9 @@ class BudgetWrapUpMiddleware(AgentMiddleware):
         return int(value) if isinstance(value, int) else 0
 
     # ── hook：before_model（计数 + 收尾提示）───────────────────────────
+    # 每次请求模型前更新调用次数和收尾状态；计数属于本次图运行。
     def before_model(self, state: Any, runtime: Any) -> dict[str, Any] | None:
+        # 模型每调用一次就加一，包括初次判断与收尾；这个计数独立存放在当前运行 state。
         count = self._count(state) + 1
         update: dict[str, Any] = {"wrap_up_calls": count}
         if count == self.wrap_up_at:
@@ -495,16 +523,19 @@ class BudgetWrapUpMiddleware(AgentMiddleware):
             update["messages"] = [HumanMessage(content=BUDGET_WRAP_UP_TEXT)]
         return update
 
+    # 读取状态中的收尾标记，供同步和异步模型包装入口共用。
     @staticmethod
     def _is_wrap_up(state: Any) -> bool:
         return bool(isinstance(state, dict) and state.get("wrap_up_active"))
 
     # ── hook：wrap_model_call / awrap_model_call（无工具收尾）──────────
+    # 同步模型调用时，收尾阶段不再提供工具，并清除模型仍然输出的工具调用。
     def wrap_model_call(self, request: ModelRequest, handler: Callable[..., Any]) -> Any:
         if not self._is_wrap_up(request.state):
             return handler(request)
         return _blank_tool_calls(handler(request.override(tools=[], tool_choice=None)))
 
+    # 异步模型调用的收尾处理；日常 astream 执行会使用异步入口。
     async def awrap_model_call(
         self, request: ModelRequest, handler: Callable[..., Any]
     ) -> Any:
@@ -514,6 +545,7 @@ class BudgetWrapUpMiddleware(AgentMiddleware):
         return _blank_tool_calls(response)
 
 
+# 清理模型响应中 AI 消息的工具调用，避免收尾回答再次触发工具节点。
 def _blank_tool_calls(response: Any) -> Any:
     """把 ``ModelResponse.result`` 里 AI 消息的 ``tool_calls`` 清空。
 
@@ -547,6 +579,7 @@ def _blank_tool_calls(response: Any) -> Any:
 # ── 官方件的文本映射 ────────────────────────────────────────────────────
 
 
+# 把工具异常转成项目约定的结果文字；异常成为模型能读取的工具反馈。
 def _old_error_text(exc: Exception, request: Any) -> str:
     """把工具异常映射为旧路径的 ``tool_result`` 文本。
 
@@ -574,10 +607,12 @@ def _old_error_text(exc: Exception, request: Any) -> str:
     )
 
 
+# 为异步错误处理接口复用相同的异常转译规则。
 async def _old_error_text_async(exc: Exception, request: Any) -> str:
     return _old_error_text(exc, request)
 
 
+# 判断异常是否属于允许重试的瞬时故障；是否启用重试还受工具名称白名单限制。
 def _retry_on(exc: Exception) -> bool:
     """只重试可重试的**瞬时**异常（规格 §5）。
 
@@ -593,6 +628,8 @@ def _retry_on(exc: Exception) -> bool:
 # ── 工厂 ───────────────────────────────────────────────────────────────
 
 
+# 统一创建业务规则、调用次数限制、工具异常处理、重试与收尾中间件。
+# 当前重试工具白名单为空，不能把装配了 ToolRetryMiddleware 理解为所有工具都会自动重试。
 def build_business_middleware(
     *,
     max_tool_rounds: int,

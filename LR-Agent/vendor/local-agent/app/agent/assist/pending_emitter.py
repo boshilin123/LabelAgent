@@ -1,3 +1,4 @@
+# 学习导航：把需要客户端执行的调用打包为 tool_pending 事件，供兼容路径通知客户端接手。
 """发出 tool_pending SSE 并结束当前 HTTP 轮次。"""
 
 import json
@@ -7,6 +8,7 @@ from app.agent.tool_invocation import ResolvedToolCall
 from app.schemas.agent import ClientToolCallPayload, StreamEventPayload
 
 
+# 把多条已解析调用转成客户端载荷并发出事件；实际客户端执行结果会在下一请求回传。
 async def emit_tool_pending(
     calls: list[ResolvedToolCall],
 ) -> AsyncIterator[StreamEventPayload]:

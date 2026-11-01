@@ -1,3 +1,5 @@
+# 学习导航：从尚未生成完整的工具参数 JSON 中提前提取文件内容，支持提案的逐段展示。
+# 这里发出的内容片段用于展示，完整参数仍需交给文件工具做校验。
 """写文件 / 局部替换工具的 tool_call_chunks 流式拦截器。
 
 在 LLM astream 过程中，按 tc_index 递增解析 JSON 参数，实时发射提案 SSE 事件：
@@ -25,6 +27,7 @@ EDIT_TOOL_NAME = "str_replace_workspace_file"
 _HEX_DIGITS = set("0123456789abcdefABCDEF")
 
 
+# 尝试解码当前 JSON 字符串中的 Unicode 转义，包含代理对处理；片段不完整时等待后续数据。
 def _decode_unicode_escape(buf: str, u_pos: int) -> tuple[str | None, int]:
     """解码以 buf[u_pos]（'u' 字符）开头的 \\uXXXX 转义。
 
@@ -57,6 +60,7 @@ def _decode_unicode_escape(buf: str, u_pos: int) -> tuple[str | None, int]:
     return chr(cp), 5
 
 
+# 在未完成的 JSON 缓冲区中尽量读出指定字符串字段，正确处理转义字符。
 def _extract_json_string(buf: str, key: str) -> tuple[str | None, bool]:
     """从可能不完整的 JSON 缓冲区中提取字符串字段值。
 
@@ -97,9 +101,11 @@ def _extract_json_string(buf: str, key: str) -> tuple[str | None, bool]:
     return ("".join(result) if result else None), False
 
 
+# 按本轮工具调用索引保存参数缓冲区和已发送长度，避免重复发送相同内容。
 class ProposalStreamInterceptor:
     """拦截 LLM astream 的 tool_call_chunks，实时生成 file_proposal SSE。"""
 
+    # 保存路径归一化所需上下文，并为本轮创建独立的分片状态字典。
     def __init__(self, client_context: ClientContextInput | None = None) -> None:
         # client_context 用于把模型给的 relative_path 归一为与工具结果定稿
         # 事件一致的显示路径（绝对路径/./ 前缀/反斜杠都会被归一），
@@ -108,6 +114,7 @@ class ProposalStreamInterceptor:
         # fp_states: tc_index → {args_buf, title_sent, content_sent_len, rel_path, call_id}
         self.fp_states: dict[int, dict] = {}
 
+    # 初始化单个调用的缓冲区、路径和已发送字符数。
     @staticmethod
     def _new_state(call_id: str = "", kind: str = "write") -> dict:
         return {
@@ -121,6 +128,7 @@ class ProposalStreamInterceptor:
             "call_id": call_id,
         }
 
+    # 兼容服务商发送新增片段或累计全文两种方式，并忽略已经见过的重复前缀。
     @staticmethod
     def _merge_args(state: dict, tc_args: str) -> None:
         """合并参数分片，兼容增量式与累积式两种 provider 行为，重复投递幂等。"""
@@ -136,6 +144,7 @@ class ProposalStreamInterceptor:
         else:
             state["args_buf"] = buf + tc_args
 
+    # 读取模型工具参数分片，识别路径和内容变化，返回本次新增的提案展示事件。
     def on_chunk(self, chunk) -> list[StreamEventPayload]:
         """处理一个 AIMessageChunk，返回需要产出的 SSE 事件。"""
         events: list[StreamEventPayload] = []
@@ -213,6 +222,7 @@ class ProposalStreamInterceptor:
                         )
         return events
 
+    # 分别计算精确替换 old_string/new_string 尚未发出的部分，合并为编辑增量事件。
     @staticmethod
     def _edit_delta_events(state: dict) -> list[StreamEventPayload]:
         """提取 old_string / new_string 增量，合并为一个 file_edit_delta 事件。"""
@@ -238,10 +248,12 @@ class ProposalStreamInterceptor:
             )
         ]
 
+    # 返回已经发过提案开始事件的路径集合，供轮末定稿时避免重复开头。
     def collected_paths(self) -> set[str]:
         """返回拦截器已发送过 file_proposal_start 的显示路径集合（已归一化）。"""
         return set(self.streamed_paths_by_call_id().values())
 
+    # 返回调用 ID 到已展示路径的映射，保持最终提案与此前内容的关联。
     def streamed_paths_by_call_id(self) -> dict[str, str]:
         """call_id → 已流式过 start 的显示路径（已归一化）。
 

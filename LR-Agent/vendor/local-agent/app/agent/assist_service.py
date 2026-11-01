@@ -1,3 +1,5 @@
+# 学习导航：legacy 兼容路径的主工具循环，方便与官方 create_agent 路径对照学习。
+# 当前默认入口在 langchain_runtime/entry.py；本文件不是默认 Agent 的工厂。
 """Assist 模式流式推理：编排 ToolLoopRunner + VisionAutoLoader + ProposalStreamInterceptor。"""
 
 from collections.abc import AsyncIterator
@@ -18,6 +20,7 @@ from app.core.config import Settings
 from app.schemas.agent import ClientContextInput, StreamEventPayload
 
 
+# 手工组织旧路径的模型—工具多轮循环，处理续跑、只读子代理、视觉回退和工具轮数限制。
 async def stream_assist(
     llm: ChatOpenAI,
     lc_messages: list,
@@ -36,6 +39,7 @@ async def stream_assist(
     yield StreamEventPayload(type="preparing", stage="streaming")
 
     llm_with_tools = llm.bind_tools(tools)
+    # 模型通过工具 schema 知道参数怎么填，后端通过 fn_map 找到真正的执行函数。
     fn_map = tool_fn_map(tools)
     from app.agent.assist.explore_readonly import (
         EXPLORE_READONLY_TOOL_NAME,
@@ -56,6 +60,7 @@ async def stream_assist(
             parent_fn_map=parent_fns,
             client_context=client_context,
         )
+    # 复制外层列表，后续向本轮消息加入 AIMessage 和 ToolMessage，不直接追加到调用方列表。
     messages = list(lc_messages)
     vision_fn = fn_map.get(VISION_TOOL_NAME)
     is_resume = bool(client_tool_results)
@@ -95,6 +100,7 @@ async def stream_assist(
     # ── 主循环 ───────────────────────────────────────────────────────
     # 视觉图片由模型按需调用 read_image_for_vision 加载；
     # 仅在第一轮无 tool call 时由 VisionAutoLoader 兜底（见循环内 fallback 分支）。
+    # 旧路径在 Python for 循环里反复请求模型；默认路径由官方 Agent 图完成这件事。
     for round_idx in range(max_tool_rounds + 1):
         if await is_cancelled():
             return
@@ -104,6 +110,7 @@ async def stream_assist(
         # 本轮，导致提案 delta 错标归属路径并把别的文件内容追加进旧提案。
         interceptor = ProposalStreamInterceptor(client_context)
 
+        # gathered 累积本轮模型分片，pending_text 收集本轮已经输出的文字，供轮末决策使用。
         gathered: AIMessage | None = None
         pending_text: list[str] = []
 

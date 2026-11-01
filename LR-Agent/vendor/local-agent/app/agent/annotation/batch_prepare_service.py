@@ -1,3 +1,5 @@
+# 学习导航：一次模型调用完成选图与计划生成，保留供规划模式等场景使用。
+# 当前几何类 auto_annotate 确定性流水线不调用本服务，不要把它当成每次自动标注的必经步骤。
 """批量标注准备：单次 LLM 同时完成图片范围选择与执行计划生成。
 
 替代原先多步 parse-task + parse-scope + create-plan 流程。
@@ -64,6 +66,7 @@ BATCH_PREPARE_SYSTEM = """你是批量图片 bbox 标注的准备助手（一次
 }"""
 
 
+# 只接受候选目录中存在的路径，统一斜杠后过滤，避免采用模型编造的图片路径。
 def _filter_selected_paths(
     raw_paths: object,
     candidates: list[dict],
@@ -86,6 +89,8 @@ def _filter_selected_paths(
     return selected, reason
 
 
+# 把需求、候选图片和标签目录发送给模型，再校验选图结果并组装计划。
+# 客户端已显式选图时锁定有效选择，模型只生成计划；这里不执行检测或写入标注。
 async def prepare_batch_annotation(
     llm: ChatOpenAI,
     *,
@@ -123,6 +128,7 @@ async def prepare_batch_annotation(
             plan=plan,
         )
 
+    # 限制进入提示词的候选数量，并只保留选图需要的路径/名称/父目录，减少输入长度。
     prompt_candidates = [
         {
             "relative_path": c.get("relative_path"),
@@ -136,6 +142,7 @@ async def prepare_batch_annotation(
         labels_line = f"\n项目标签：{', '.join(label_names[:40])}\n"
 
     # 仅当客户端显式传入 preselected_paths（如 UI 勾选）时锁定选图，不由回合理解注入
+    # 客户端显式选中的路径也必须确实存在于候选中；过滤后的有效路径才作为锁定范围。
     locked_paths, _ = _filter_selected_paths(preselected_paths or [], candidates)
     locked_block = ""
     if locked_paths:
@@ -183,6 +190,7 @@ async def prepare_batch_annotation(
         if not selected and not scope_reason:
             scope_reason = "未从候选中解析到图片，请更具体说明文件夹或文件名"
 
+    # 从文字补充范围约束，再和模型计划一起交给 plan_parsing 做字段与阈值整理。
     base_scope = merge_annotation_scope(
         AnnotationScopePayload(),
         user_request,

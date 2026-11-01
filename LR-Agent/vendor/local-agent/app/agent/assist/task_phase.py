@@ -1,3 +1,5 @@
+# 学习导航：把提案状态转成任务阶段，并提供工具调用前的确定性规则。
+# 提示词提醒模型遵守阶段，check_call_allowed 则在代码层真正检查调用。
 """标注任务阶段状态机：从结构化提案状态推导阶段，按阶段门禁工具调用。
 
 设计要点：
@@ -33,6 +35,7 @@ WORKSPACE_WRITE_TOOLS: frozenset[str] = frozenset(
 )
 
 
+# 任务阶段枚举：扫描、标注、等待确认、核验和报告；当前执行限制集中在等待确认与核验阶段。
 class TaskPhase(str, Enum):
     """标注任务阶段。SCAN/ANNOTATE/REPORT 目前仅作语义标记，门禁集中在
     AWAIT_CONFIRM 与 VERIFY。"""
@@ -44,6 +47,7 @@ class TaskPhase(str, Enum):
     REPORT = "report"
 
 
+# 当前阶段及待确认/已应用文件路径，是一次请求内的规则判断依据。
 @dataclass(frozen=True)
 class TaskPhaseContext:
     """一次请求推导出的阶段上下文。"""
@@ -53,11 +57,13 @@ class TaskPhaseContext:
     applied_annotation_paths: frozenset[str]
     applied_annotation_ids: frozenset[str] = frozenset()
 
+    # 只在需要等待确认或核验已应用提案时启用相应限制。
     @property
     def gating_enabled(self) -> bool:
         return self.phase in (TaskPhase.AWAIT_CONFIRM, TaskPhase.VERIFY)
 
 
+# 统一路径斜杠与前缀，让同一文件的不同写法可以比较。
 def normalize_rel_path(path: str) -> str:
     """归一化相对路径，便于跨调用比对（统一斜杠、去 ./ 前缀）。"""
     normalized = path.strip().replace("\\", "/")
@@ -66,6 +72,7 @@ def normalize_rel_path(path: str) -> str:
     return normalized
 
 
+# 优先检查未确认提案，其次检查已应用提案；没有有效状态时不额外启用阶段规则。
 def derive_task_phase(
     proposal_states: list[ProposalStateInput] | None,
 ) -> TaskPhaseContext | None:
@@ -111,6 +118,7 @@ def derive_task_phase(
     return None
 
 
+# 兼容模型传入列表、JSON 数组字符串或逗号分隔文字，统一得到字符串列表。
 def coerce_str_list(value: Any) -> list[str]:
     """把模型传来的 list / JSON 数组字符串 / 逗号分隔 / 单值收成字符串列表。
 
@@ -142,6 +150,7 @@ def coerce_str_list(value: Any) -> list[str]:
     return [str(item).strip() for item in items if str(item).strip()]
 
 
+# 兼容布尔值和常见布尔字符串，避免把字符串 false 直接当成真。
 def coerce_bool(value: Any) -> bool:
     """把模型传来的 true/false（含字符串形式）收成 bool。"""
     if isinstance(value, bool):
@@ -151,6 +160,7 @@ def coerce_bool(value: Any) -> bool:
     return bool(value)
 
 
+# 合并 paths 和兼容字段 scope_hint 的目标路径，并归一化、去重。
 def extract_call_paths(arguments: dict[str, Any]) -> frozenset[str]:
     """从标注工具参数中提取目标路径集合（paths 优先，兼容 scope_hint）。"""
     paths: set[str] = set()
@@ -165,6 +175,7 @@ def extract_call_paths(arguments: dict[str, Any]) -> frozenset[str]:
     return frozenset(paths)
 
 
+# 计算当前阶段应从可见工具集中移除的名称，等待确认时限制新的写入操作。
 def blocked_tool_names(ctx: TaskPhaseContext | None) -> frozenset[str]:
     """工具级门禁：bind_tools 时直接移除的工具集合。"""
     if ctx is None or not ctx.gating_enabled:
@@ -174,6 +185,8 @@ def blocked_tool_names(ctx: TaskPhaseContext | None) -> frozenset[str]:
     return frozenset()
 
 
+# 执行前检查具体工具和参数；允许时返回 None，拦截时返回可反馈给模型的原因。
+# VERIFY 阶段限制重复全量标注，仍允许参数明确的定向修正。
 def check_call_allowed(
     name: str,
     arguments: dict[str, Any],
@@ -233,6 +246,7 @@ def check_call_allowed(
     return None
 
 
+# 将阶段规则整理成系统提示的一部分，让模型提前知道当前可做什么。
 def phase_prompt_block(ctx: TaskPhaseContext | None) -> str:
     """阶段提示词块，追加到系统提示词末尾。"""
     if ctx is None or not ctx.gating_enabled:

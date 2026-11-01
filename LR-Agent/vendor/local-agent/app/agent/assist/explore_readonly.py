@@ -1,3 +1,5 @@
+# 学习导航：只读探索子代理的内部循环。父 Agent 委托它查资料，它只返回总结，不继承写文件或自动标注能力。
+# 默认 create_agent 路径由 langchain_runtime/subagent.py 将这个 runner 包装成父图工具。
 """只读查阅子代理：嵌套短循环，产出 subagent_* SSE，最终回中文摘要。"""
 
 from __future__ import annotations
@@ -65,6 +67,7 @@ _SUBAGENT_SYSTEM = """你是只读查阅子代理。只用只读工具查看代�
 _INNER_RESULT_LIMIT = 4000
 
 
+# 根据是否允许读取标注数据生成子代理白名单，并始终剔除禁止的写入/递归探索工具。
 def resolve_explore_inner_names(*, include_annotation_reads: bool) -> frozenset[str]:
     names = set(EXPLORE_READONLY_BASE_INNER)
     if include_annotation_reads:
@@ -72,6 +75,7 @@ def resolve_explore_inner_names(*, include_annotation_reads: bool) -> frozenset[
     return frozenset(names - EXPLORE_READONLY_FORBIDDEN_INNER)
 
 
+# 编辑器场景不加入标注读取；其他场景结合父工具集判断是否具备标注读取能力。
 def should_include_annotation_reads(
     client_context: ClientContextInput | None,
     parent_tools: list[StructuredTool] | None = None,
@@ -84,6 +88,7 @@ def should_include_annotation_reads(
     return bool(parent_names & EXPLORE_READONLY_ANNOTATION_INNER)
 
 
+# 过滤给子代理模型看的工具 schema，确保模型只能看到允许的工具。
 def filter_explore_inner_tools(
     parent_tools: list[StructuredTool],
     *,
@@ -99,6 +104,7 @@ def filter_explore_inner_tools(
     ]
 
 
+# 同步过滤实际执行函数映射，避免只隐藏 schema 却仍保留越界执行入口。
 def filter_explore_inner_fn_map(
     parent_fn_map: dict[str, object],
     *,
@@ -114,12 +120,14 @@ def filter_explore_inner_fn_map(
     }
 
 
+# 限制工具结果的文本长度，减少子代理上下文占用，并提示原始长度。
 def _truncate_result(text: str, limit: int = _INNER_RESULT_LIMIT) -> str:
     if len(text) <= limit:
         return text
     return f"{text[:limit]}…\n[已截断，共 {len(text)} 字符]"
 
 
+# 执行一条白名单内层工具，同步读盘放在线程中；失败时返回统一错误结果。
 async def _invoke_inner(name: str, args: dict, fn_map: dict[str, object]) -> str:
     fn = fn_map.get(name)
     try:
@@ -148,6 +156,7 @@ async def _invoke_inner(name: str, args: dict, fn_map: dict[str, object]) -> str
         )
 
 
+# 将 API 的调用对象统一转成字典，便于后续解析与写入历史消息。
 def _tool_calls_as_dicts(raw: Any) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     for call in raw or []:
@@ -164,6 +173,7 @@ def _tool_calls_as_dicts(raw: Any) -> list[dict[str, Any]]:
     return out
 
 
+# 将已解析调用写成 AIMessage，确保随后每条 ToolMessage 都有对应的调用声明。
 def _ai_message_from_resolved(text: str, calls: list) -> AIMessage:
     return AIMessage(
         content=text,
@@ -179,9 +189,11 @@ def _ai_message_from_resolved(text: str, calls: list) -> AIMessage:
     )
 
 
+# 管理一次只读探索的模型调用、工具结果和进度输出，工具轮数独立受子代理预算限制。
 class ExploreReadonlyRunner:
     """复用父 LLM / 取消信号，跑一轮独立的只读查阅循环。"""
 
+    # 从父工具和函数表筛出只读子集，并保存模型、取消检查和上下文。
     def __init__(
         self,
         *,
@@ -199,6 +211,7 @@ class ExploreReadonlyRunner:
         self.parent_fn_map = parent_fn_map
         self.client_context = client_context
 
+    # 按有限轮次执行“查询 → 读工具 → 更新消息”，逐步发进度，最后给出总结与状态。
     async def stream(
         self,
         *,

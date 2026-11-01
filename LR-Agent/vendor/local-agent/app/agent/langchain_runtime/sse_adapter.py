@@ -1,3 +1,5 @@
+# 学习导航：把 LangChain/LangGraph 原始流转换成项目事件：文字增量、工具进度、提案和挂起通知。
+# 这里处理事件表达，工具是否执行由 middleware 与 round_plan 决定；最终 done 帧由 entry.py 负责。
 """阶段 4a：官方 Agent 原始事件 → SSE ``StreamEventPayload`` 适配器（骨架 + 机制无关部分）。
 
 对应 ``docs/阶段4-SSE适配设计备忘.md`` §8 实施清单第 **1-5、7、8** 项。
@@ -83,6 +85,7 @@ __all__ = [
 # ── 运行配置 ───────────────────────────────────────────────────────────
 
 
+# 集中保存本次运行的上下文、客户端背景和流协议选项；消息通过函数参数另外传入。
 @dataclass(frozen=True)
 class SseStreamConfig:
     """适配器的一次性运行配置（``stream_agent_events(config=...)`` 的取值）。
@@ -112,11 +115,13 @@ class SseStreamConfig:
     stream_modes: tuple[str, ...] | None = None
     version: str | None = None
 
+    # 调用方没指定时使用默认订阅模式，并返回可迭代的模式集合。
     def resolved_stream_modes(self) -> tuple[str, ...]:
         if self.stream_modes is not None:
             return tuple(self.stream_modes)
         return tuple(getattr(_runtime, "STREAM_MODES", ("messages", "updates")))
 
+    # 确定使用的原始流协议版本，默认读取 runtime 中的约定。
     def resolved_version(self) -> str:
         if self.version is not None:
             return self.version
@@ -126,6 +131,7 @@ class SseStreamConfig:
 _CONFIG_FIELDS = frozenset(SseStreamConfig.__dataclass_fields__)
 
 
+# 兼容配置对象或字典输入；遇到未知字段直接报错，避免拼写错误悄悄失效。
 def _coerce_config(config: Any) -> SseStreamConfig:
     """把 ``config`` 归一为 :class:`SseStreamConfig`（映射键名非法时**报错而非静默忽略**）。"""
     if config is None:
@@ -151,6 +157,7 @@ def _coerce_config(config: Any) -> SseStreamConfig:
 # ── 框架异常策略（清单第 8 项）──────────────────────────────────────────
 
 
+# 用固定策略描述框架异常如何映射到项目事件，便于集中检查错误行为。
 @dataclass(frozen=True)
 class FrameworkErrorPolicy:
     """框架异常的处置口径（备忘 §5）。"""
@@ -185,6 +192,7 @@ _FRAMEWORK_ERROR_POLICY = FrameworkErrorPolicy(
 )
 
 
+# 提供适配器使用的框架异常处理策略。
 def _framework_error_policy() -> FrameworkErrorPolicy:
     """返回框架异常策略（清单第 8 项的具名落点）。
 
@@ -198,6 +206,7 @@ def _framework_error_policy() -> FrameworkErrorPolicy:
 # ── 事件分片解析（v2 形状：``{"type","ns","data"}``）───────────────────
 
 
+# 识别一个原始事件属于 messages、updates 还是 custom；无法识别时返回 None。
 def _part_kind(part: Any) -> str | None:
     """取分片模式名；无法识别时返回 ``None``（调用方跳过）。"""
     if isinstance(part, Mapping):
@@ -208,6 +217,7 @@ def _part_kind(part: Any) -> str | None:
     return None
 
 
+# 兼容字典和元组两种事件外壳，取出实际数据。
 def _part_data(part: Any) -> Any:
     """取分片负载（``runtime.AgentEvent`` 的 dict 与 tuple 两种形态都支持）。"""
     if isinstance(part, Mapping):
@@ -217,6 +227,7 @@ def _part_data(part: Any) -> Any:
     return None
 
 
+# 从 messages 事件的“消息 + 元数据”组合里取消息对象。
 def _message_of(data: Any) -> Any:
     """``messages`` 分片的负载是 ``(message, metadata)``（实测确认）。"""
     if isinstance(data, (tuple, list)) and data:
@@ -224,6 +235,7 @@ def _message_of(data: Any) -> Any:
     return None
 
 
+# 取 messages 事件的元数据，用于判断来源节点和图执行步骤。
 def _metadata_of(data: Any) -> Mapping[str, Any]:
     if isinstance(data, (tuple, list)) and len(data) > 1 and isinstance(data[1], Mapping):
         return data[1]
@@ -233,6 +245,7 @@ def _metadata_of(data: Any) -> Mapping[str, Any]:
 # ── 增量事件与提案拦截（清单第 3、4 项）───────────────────────────────
 
 
+# 把单个模型分片转换为文字或推理增量事件，复用通用分片解析器。
 def _delta_events(chunk: AIMessageChunk) -> list[StreamEventPayload]:
     """单分片的文本 / reasoning 增量事件（**原样复用**旧路径实现）。
 
@@ -245,6 +258,7 @@ def _delta_events(chunk: AIMessageChunk) -> list[StreamEventPayload]:
     return events_from_chunk(chunk, emit_tool_chunks=False)
 
 
+# 为新一轮创建提案参数拦截器，逐段展示尚未完整生成的文件内容。
 def _new_interceptor(client_context: Any) -> ProposalStreamInterceptor:
     """每轮新建拦截器（``assist_service.py:102-105`` 同款）。
 
@@ -258,6 +272,7 @@ def _new_interceptor(client_context: Any) -> ProposalStreamInterceptor:
 # ── 轮末素材（清单第 5 项；第 6 项的输入）─────────────────────────────
 
 
+# 识别模型及相关 after_model 节点的更新，便于收集本轮完整调用表。
 def _is_model_update(node: Any) -> bool:
     """``node`` 是否是「模型节点（或其 after_model 钩子）」的 updates 键。
 
@@ -271,6 +286,7 @@ def _is_model_update(node: Any) -> bool:
 _AFTER_MODEL_SUFFIX = ".after_model"
 
 
+# 判断节点是否为模型之后的中间件节点，用来读取业务规则调整后的状态。
 def _is_after_model_node(node: Any) -> bool:
     """``node`` 是否是某个 middleware 的 ``after_model`` 钩子节点。
 
@@ -287,6 +303,7 @@ def _is_after_model_node(node: Any) -> bool:
 
 
 
+# 从节点更新中找到最后一条 AI 消息，并取出它提出的工具调用。
 def _model_tool_calls(update: Any) -> list[Any]:
     """从单个节点更新里取**最后一条 AI 消息**的 ``tool_calls``。
 
@@ -311,6 +328,7 @@ def _model_tool_calls(update: Any) -> list[Any]:
     return []
 
 
+# 按调用 ID 去重并保持首次出现顺序，避免不同事件来源重复展示同一次调用。
 def _dedupe_calls(calls: Sequence[ResolvedToolCall]) -> list[ResolvedToolCall]:
     seen: set[str] = set()
     out: list[ResolvedToolCall] = []
@@ -322,6 +340,7 @@ def _dedupe_calls(calls: Sequence[ResolvedToolCall]) -> list[ResolvedToolCall]:
     return out
 
 
+# 合并本轮节点更新中的调用信息，确定 tool_start 等事件的顺序。
 def _resolve_round_calls(updates: Any) -> list[ResolvedToolCall]:
     """本轮模型调用表（**保序**，即 ``tool_start`` 该用的顺序）。
 
@@ -344,6 +363,7 @@ def _resolve_round_calls(updates: Any) -> list[ResolvedToolCall]:
     return []
 
 
+# 优先读取业务中间件产出的 round_plan；它比仅看模型原始调用更接近最终执行决定。
 def _resolve_round_plan(updates: Any) -> RoundPlan | None:
     """从 ``updates`` 里取**权威本轮计划**（``*.after_model`` 的 ``round_plan`` 字段）。
 
@@ -370,6 +390,7 @@ def _resolve_round_plan(updates: Any) -> RoundPlan | None:
     return None
 
 
+# 取得计划合并或修正后的参数，避免事件展示仍使用合并前的旧参数。
 def _plan_arguments(
     plan: RoundPlan, call: ResolvedToolCall
 ) -> dict[str, Any]:
@@ -385,6 +406,7 @@ def _plan_arguments(
 
 
 
+# 从 messages 或 updates 事件中提取 ToolMessage，供统一收集工具结果。
 def _tool_messages_in(part: Any) -> list[ToolMessage]:
     """从一个原始分片里取出 ``ToolMessage``（``messages`` 与 ``updates`` 两种承载）。"""
     found: list[ToolMessage] = []
@@ -422,11 +444,13 @@ _TOOLS_NODE = "tools"
 """执行工具的图节点名（``langchain/agents/factory.py:1543/1547``）。"""
 
 
+# 读取消息事件元数据中的节点名，缺失时返回空字符串。
 def _part_node(part: Any) -> str:
     """``messages`` 分片的来源节点名（``metadata["langgraph_node"]``）；取不到时空串。"""
     return str(_metadata_of(_part_data(part)).get("langgraph_node") or "")
 
 
+# 从两类事件来源汇总工具结果并去重，避免同一个结果发两遍。
 def _tool_results(parts: Sequence[Any]) -> list[ToolMessage]:
     """工具结果（**双源去重**）。
 
@@ -469,6 +493,7 @@ def _tool_results(parts: Sequence[Any]) -> list[ToolMessage]:
 # ── 轮末（清单第 6 项留白）─────────────────────────────────────────────
 
 
+# 保存一轮结束时所需的调用、计划、结果和提案流记录，统一生成轮末事件。
 @dataclass(frozen=True)
 class RoundTailState:
     """一个「模型轮」收尾时的全部素材（:func:`_round_tail` 的唯一入参）。
@@ -504,6 +529,7 @@ class RoundTailState:
     client_context: Any
     task_phase_ctx: Any
 
+    # 有业务轮计划时将它整理为自定义事件，没有计划时返回 None。
     @property
     def plan_frame(self) -> Mapping[str, Any] | None:
         """阶段 3 的「本轮计划」帧（``custom``，``type="round_plan"``）—— 没有则 ``None``。
@@ -518,6 +544,8 @@ class RoundTailState:
         return None
 
 
+# 在本轮信息收齐后按规则输出工具开始、结果、提案或客户端挂起事件。
+# 这样可以使用中间件的最终计划，避免刚看到模型调用片段就误判执行结果。
 async def _round_tail(state: RoundTailState) -> AsyncIterator[StreamEventPayload]:
     """轮末映射（备忘 §8 实施清单第 6 项）：``tool_start`` / ``tool_result`` /
     ``tool_pending`` + 写类工具的 ``file_proposal*`` 定稿帧。
@@ -677,6 +705,7 @@ async def _round_tail(state: RoundTailState) -> AsyncIterator[StreamEventPayload
             yield pending_event
 
 
+# 区分普通工具、视觉工具和文件提案的展示结果，去掉只供后端使用的内部标记。
 def _display_result(
     name: str, raw_result: str
 ) -> tuple[str, dict[str, Any] | None, str | None]:
@@ -729,6 +758,7 @@ _INVALID_TOOL_PATTERN = re.compile(
 """``langgraph/prebuilt/tool_node.py:108-110`` 的 ``INVALID_TOOL_NAME_ERROR_TEMPLATE``。"""
 
 
+# 把框架的未知工具错误整理成项目现有的结果格式。
 def _old_unknown_tool_result(raw_result: str) -> str | None:
     """把框架的「未注册工具」错误文本换回旧路径的**显示载荷**。
 
@@ -752,6 +782,7 @@ def _old_unknown_tool_result(raw_result: str) -> str | None:
     )
 
 
+# 从工具结果提取完整文件提案，生成内容和定稿事件；提案本身尚不代表磁盘已修改。
 async def _proposal_frames(
     call: ResolvedToolCall,
     *,
@@ -836,6 +867,7 @@ async def _proposal_frames(
 # ── 轮累积器 ───────────────────────────────────────────────────────────
 
 
+# 累积当前模型轮次的分片和节点更新，在进入下一轮或流结束时统一结算。
 @dataclass
 class _RoundAccumulator:
     """一个模型轮的累积状态（适配器内部；不跨轮复用）。"""
@@ -851,6 +883,7 @@ class _RoundAccumulator:
     update_payloads: list[Mapping[str, Any]] = field(default_factory=list)
     control_frames: list[Mapping[str, Any]] = field(default_factory=list)
 
+    # 用图步骤判断是否进入下一轮模型输出，防止把相邻两轮混在一起。
     def starts_new_round(self, step: Any) -> bool:
         """本分片是否属于**下一轮**。
 
@@ -872,10 +905,12 @@ class _RoundAccumulator:
             return step != self.step
         return self.saw_model_update
 
+    # 记录模型分片所属步骤，为轮次边界判断提供依据。
     def note_chunk(self, step: Any) -> None:
         if self.step is None and step is not None:
             self.step = step
 
+    # 收集节点更新内容，留给本轮结束时解析调用和结果。
     def note_updates(self, payload: Mapping[str, Any]) -> None:
         self.update_payloads.append(payload)
         if any(_is_model_update(node) for node in payload):
@@ -883,12 +918,14 @@ class _RoundAccumulator:
         if "__interrupt__" in payload:
             self.interrupted = True
 
+    # 合并已收到的节点更新，形成轮末处理可读取的视图。
     def combined_updates(self) -> dict[str, Any]:
         merged: dict[str, Any] = {}
         for payload in self.update_payloads:
             merged.update(payload)
         return merged
 
+    # 把当前累积数据封装成 RoundTailState，交给轮末事件生成函数。
     def tail_state(self) -> RoundTailState:
         return RoundTailState(
             index=self.index,
@@ -920,6 +957,7 @@ _CUSTOM_CONTROL_TYPES: frozenset[str] = frozenset({"round_plan", "turn_end"})
 """
 
 
+# 将子代理或视觉处理中自定义写出的字典还原为 StreamEventPayload。
 def _custom_event(data: Any) -> StreamEventPayload | None:
     """把 ``custom`` 分片的 ``data`` 直通为 ``StreamEventPayload``（备忘 §1 追加要求）。
 
@@ -948,6 +986,7 @@ def _custom_event(data: Any) -> StreamEventPayload | None:
 # ── 主入口 ─────────────────────────────────────────────────────────────
 
 
+# 消费原始图事件：边收到边发文字，累积工具信息，在轮末输出完整业务结果。
 async def stream_agent_events(
     agent: Any,
     *,
@@ -991,6 +1030,7 @@ async def stream_agent_events(
     再 ``aclose()`` 底层生成器——**因此被放弃的适配器不会留下仍在跑工具的框架流**
     （备忘 §7 的 inferred 项，本文件用测试钉住）。
     """
+    # 先把可选配置整理成同一种对象，后面的主循环只需处理统一格式。
     cfg = _coerce_config(config)
     effective_client_context = (
         client_context if client_context is not None else cfg.client_context
@@ -1006,9 +1046,11 @@ async def stream_agent_events(
 
     yield StreamEventPayload(type="preparing", stage="streaming")
 
+    # 这里的 state 是适配器的一轮事件累积器，与官方图完整 state 的用途不同。
     state: _RoundAccumulator | None = None
     rounds = 0
 
+    # 开始新一轮时重置累积器和提案拦截器，让每一轮拥有独立临时数据。
     def begin_round() -> _RoundAccumulator:
         nonlocal rounds
         rounds += 1
@@ -1019,6 +1061,7 @@ async def stream_agent_events(
             interceptor=_new_interceptor(effective_client_context),
         )
 
+    # 从此处进入真正的图执行；本层在原始流之外增加项目事件表达。
     raw = _runtime.stream_agent_raw_events(
         agent,
         messages,
@@ -1031,6 +1074,7 @@ async def stream_agent_events(
             kind = _part_kind(part)
             data = _part_data(part)
 
+            # messages 流包含模型分片和工具消息，不能把每条消息都当成用户可见文字。
             if kind == "messages":
                 message = _message_of(data)
                 metadata = _metadata_of(data)
@@ -1048,6 +1092,7 @@ async def stream_agent_events(
                 if not isinstance(message, AIMessageChunk):
                     continue
 
+                # 图步骤号帮助识别下一轮模型输出，切换轮次前先结算上一轮。
                 step = metadata.get("langgraph_step")
                 if state is None or state.starts_new_round(step):
                     if state is not None:
@@ -1065,6 +1110,7 @@ async def stream_agent_events(
                     yield proposal_event
                 continue
 
+            # updates 提供节点执行后的状态变化，用来收集业务计划和完整工具结果。
             if kind == "updates":
                 if state is None:
                     state = begin_round()
@@ -1072,6 +1118,7 @@ async def stream_agent_events(
                 state.note_updates(data if isinstance(data, Mapping) else {})
                 continue
 
+            # custom 传递子代理/视觉等业务进度；部分控制事件需先暂存到本轮再统一处理。
             if kind == "custom":
                 custom_type = data.get("type") if isinstance(data, Mapping) else None
                 if isinstance(custom_type, str) and custom_type in _CUSTOM_CONTROL_TYPES:
@@ -1085,6 +1132,7 @@ async def stream_agent_events(
                     yield event
                 continue
 
+        # 原始流结束后仍要结算最后一轮，避免只在出现下一轮时才发送工具结果。
         if state is not None:
             async for tail_event in _round_tail(state.tail_state()):
                 yield tail_event

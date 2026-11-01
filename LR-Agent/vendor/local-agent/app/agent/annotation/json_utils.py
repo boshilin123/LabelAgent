@@ -1,3 +1,4 @@
+# 学习导航：从模型回答文字中尽力提取 JSON 对象，兼容回答被代码块或额外文字包围的情况。
 """Extract JSON objects from LLM text responses."""
 from __future__ import annotations
 
@@ -6,6 +7,7 @@ import re
 from typing import Any
 
 
+# 先尝试直接解析，再尝试大括号包围的片段；失败或非对象类型时返回空字典。
 def extract_json_object(text: str) -> dict[str, Any]:
     raw = (text or "").strip()
     if raw.startswith("```"):

@@ -1,3 +1,4 @@
+# 学习导航：内置帮助工具，不访问外部服务；模型可以按主题获取产品功能说明。
 """LR-Agent 应用功能说明，供 get_lr_agent_help 工具返回。"""
 
 LR_AGENT_HELP = """# LR-Agent 功能概览
@@ -14,6 +15,7 @@ LR_AGENT_HELP = """# LR-Agent 功能概览
 执行批量写入或变更标注请传入明确 paths（或用户明确要求全部时 all_files=true）；查某张图已有标注在 Ask 即可。"""
 
 
+# 根据 topic 关键词选取对应说明，没有指定或没有匹配主题时返回完整概览。
 def get_lr_agent_help(topic: str | None = None) -> str:
     """按 topic 关键词返回功能说明；无 topic 时返回完整概览。"""
     if not topic or not topic.strip():

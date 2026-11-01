@@ -1,3 +1,4 @@
+# 学习导航：将模型给出的计划字典整理成内部 BatchPlanResult，并校验模型 ID、阈值和视觉能力条件。
 """Shared parsing of LLM JSON into BatchPlanResult."""
 from __future__ import annotations
 
@@ -13,6 +14,7 @@ from app.agent.annotation.schemas import (
 )
 
 
+# 为缺失字段补默认值，限制检测阈值范围，合并标注范围，再计算最终是否允许视觉映射。
 def build_batch_plan_from_data(
     data: dict[str, Any],
     *,
@@ -31,11 +33,13 @@ def build_batch_plan_from_data(
         label_strategy = "map_each_box_to_label"
 
     det_raw = data.get("detection_hints") if isinstance(data.get("detection_hints"), dict) else {}
+    # 检测模型只能从提供的目录中选择，模型返回的未知 ID 会被舍弃。
     valid_ids = {str(m.get("id") or "") for m in detection_models}
     model_id = str(det_raw.get("model_id") or "").strip()
     if model_id and model_id not in valid_ids:
         model_id = ""
 
+    # 尽量转成浮点数并限制在 lo～hi 内；输入无法转换时使用 default。
     def _clamp(val: Any, lo: float, hi: float, default: float) -> float:
         try:
             f = float(val)
@@ -92,6 +96,7 @@ def build_batch_plan_from_data(
         and labels_require_vision_mapping(label_candidates)
     )
     want_vision = plan_use_vision_raw or task_needs_vision
+    # “任务想用视觉”和“提供商支持视觉”同时成立才开启，不能只相信模型计划里的开关。
     use_vision = want_vision and bool(provider_is_vision)
     if want_vision and not provider_is_vision:
         log_annotation_agent(

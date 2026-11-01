@@ -1,3 +1,5 @@
+# 学习导航：检测框到项目标签的统一映射入口：可选整图预筛 → 逐框裁剪视觉映射 → 校验重试，或直接规则匹配。
+# 输入 boxes 是已有检测框，本模块负责匹配 label_id，不在这里运行 YOLO 检测或最终写入标注。
 """统一的检测框 → 标签映射服务（Fusion 主路径）。
 
 由 /map-detection-boxes API、deterministicSubImageRunner 调用。
@@ -43,6 +45,7 @@ CROP_VISION_SYSTEM = """你是视觉标注助手。你会收到一张裁剪后�
 只输出 JSON：{"label_id":"...","reason":"..."} ；无法确定或与任务无关时 label_id 必须为 ""。"""
 
 
+# 等比缩小裁剪图片，限制视觉请求尺寸，保持原宽高比例。
 def _resize_image_for_llm(img, max_side: int = 768):
     """等比缩放裁剪图，控制视觉 LLM 输入尺寸。"""
     from PIL import Image
@@ -54,6 +57,7 @@ def _resize_image_for_llm(img, max_side: int = 768):
     return img.resize((int(w * scale), int(h * scale)), Image.Resampling.LANCZOS)
 
 
+# 把 Pillow 图片编码成指定格式的 base64 data URL。
 def _pil_to_data_url(img, fmt: str = "JPEG") -> str:
     """将 PIL 图像编码为 data URL，供多模态 LLM 使用。"""
     buf = io.BytesIO()
@@ -65,6 +69,7 @@ def _pil_to_data_url(img, fmt: str = "JPEG") -> str:
     return f"data:{mime};base64,{b64}"
 
 
+# 根据坐标数值范围推测框是否使用 0～1 比例坐标，供裁剪时换算成像素。
 def _coords_are_normalized(boxes: list[dict]) -> bool:
     """判断检测框坐标是否为 0~1 归一化格式（任一维度 >1.5 则视为像素坐标）。"""
     for b in boxes:
@@ -77,6 +82,7 @@ def _coords_are_normalized(boxes: list[dict]) -> bool:
     return bool(boxes)
 
 
+# 打开原图，将每个有效检测框裁成小图并编码，保留 box_index 以便映射回原框。
 def _crop_boxes_from_image_bytes(
     image_bytes: bytes,
     boxes: list[dict],
@@ -90,6 +96,7 @@ def _crop_boxes_from_image_bytes(
     try:
         with Image.open(io.BytesIO(image_bytes)) as original:
             img = original.convert("RGB")
+            # iw/ih 是原图像素宽高；若框使用比例坐标，需先乘原图宽高才能裁剪。
             iw, ih = img.size
             for idx, box in enumerate(boxes):
                 try:
@@ -103,6 +110,7 @@ def _crop_boxes_from_image_bytes(
                     continue
                 if normalized:
                     x, y, w, h = x * iw, y * ih, w * iw, h * ih
+                # 把裁剪边界限制在原图内，并至少保留一个像素，避免坐标越界或空裁剪。
                 left = max(0, min(int(x), iw - 1))
                 top = max(0, min(int(y), ih - 1))
                 right = max(left + 1, min(int(x + w), iw))
@@ -120,6 +128,7 @@ def _crop_boxes_from_image_bytes(
     return regions
 
 
+# 把单个框的裁剪图、候选标签和重试反馈交给视觉模型；结果 ID 必须属于候选集合。
 async def _vision_map_box_with_crop(
     llm: ChatOpenAI,
     *,
@@ -134,6 +143,7 @@ async def _vision_map_box_with_crop(
     reserved_label_ids: list[str] | None = None,
 ) -> dict[str, Any]:
     """对单个裁剪区域调用视觉 LLM，返回 label_id 映射结果。"""
+    # 白名单只认项目提供的标签 ID；模型编造的 ID 会被清空，不能直接进入后续标注。
     valid_ids = {str(c.get("id") or "") for c in candidates}
     retry_block = ""
     if retry_note.strip():
@@ -179,6 +189,7 @@ async def _vision_map_box_with_crop(
     }
 
 
+# 并发处理多个框，使用 Semaphore 限制同时进行的视觉请求数量，避免一次启动过多请求。
 async def _vision_map_regions_concurrent(
     llm: ChatOpenAI,
     regions: list[dict[str, Any]],
@@ -191,9 +202,11 @@ async def _vision_map_regions_concurrent(
     region_overrides: dict[int, dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     """并发执行多框视觉映射，Semaphore 控制并发度。"""
+    # sem 像有限个并发名额；async with 取得名额，单框调用结束后自动归还。
     sem = asyncio.Semaphore(max(1, concurrency))
     overrides = region_overrides or {}
 
+    # 取得一个并发名额后处理单个框；重试时可使用该框专属候选和校验反馈。
     async def _map_one(region: dict[str, Any]) -> dict[str, Any]:
         async with sem:
             box_index = int(region["box_index"])
@@ -214,6 +227,7 @@ async def _vision_map_regions_concurrent(
     return list(await asyncio.gather(*[_map_one(r) for r in regions]))
 
 
+# 提取并整理候选标签名称，供调试信息使用。
 def _candidate_names(candidates: list[dict]) -> list[str]:
     return [
         str(c.get("name") or "")
@@ -222,6 +236,7 @@ def _candidate_names(candidates: list[dict]) -> list[str]:
     ]
 
 
+# 整理完整、范围过滤后和最终候选池的对比信息，便于排查标签被何时排除。
 def _label_pool_debug(
     *,
     all_candidates: list[dict],
@@ -245,10 +260,12 @@ def _label_pool_debug(
     }
 
 
+# 将映射列表按 box_index 建索引，便于只更新重试过的框。
 def _mapping_by_index(mappings: list[dict]) -> dict[int, dict]:
     return {int(m.get("box_index", 0)): m for m in mappings}
 
 
+# 收集其他框已经使用的非空标签 ID，供单框重试时参考占用情况。
 def _used_label_ids(mappings: list[dict], *, exclude_box: int | None = None) -> set[str]:
     used: set[str] = set()
     for m in mappings:
@@ -261,6 +278,7 @@ def _used_label_ids(mappings: list[dict], *, exclude_box: int | None = None) -> 
     return used
 
 
+# 先映射全部裁剪框，再校验；有限次数内仅重新请求有问题的框，并将新结果合回原顺序。
 async def _vision_map_with_validation_retry(
     llm: ChatOpenAI,
     regions: list[dict[str, Any]],
@@ -303,11 +321,13 @@ async def _vision_map_with_validation_retry(
         if result.ok:
             break
 
+        # 只收集校验失败的框索引，已通过的框不重复请求模型。
         retry_indices = sorted({i.box_index for i in result.issues})
         if not retry_indices:
             break
 
         retry_rounds += 1
+        # 为每个待重试框准备独立候选、占用标签与反馈，下一轮请求按框索引读取。
         overrides: dict[int, dict[str, Any]] = {}
         by_index = _mapping_by_index(mappings)
 
@@ -341,6 +361,7 @@ async def _vision_map_with_validation_retry(
             user_request=user_request,
             intent_summary=intent_summary,
             scope_note=scope_note,
+            # 重试串行执行，使用为每个框准备的占用标签与错误反馈。
             concurrency=1,
             region_overrides=overrides,
         )
@@ -351,6 +372,8 @@ async def _vision_map_with_validation_retry(
     return mappings, retry_rounds
 
 
+# 统一选择单标签分配、逐框视觉映射或启发式映射，返回 mappings、未匹配索引与来源信息。
+# 是否真的使用视觉，必须同时满足请求开关和模型实例可用等条件。
 async def map_detection_boxes_to_labels_unified(
     llm: ChatOpenAI | None,
     *,
@@ -402,6 +425,7 @@ async def map_detection_boxes_to_labels_unified(
     if not boxes:
         return {"ok": False, "error": "boxes 不能为空", "method": "none"}
 
+    # 明确指定所有框同一标签且 ID 合法时，直接构造映射，无需逐框请求模型。
     if label_strategy == "single_label_for_all_boxes" and single_label_id:
         if single_label_id in valid_ids:
             mappings = [
@@ -419,6 +443,7 @@ async def map_detection_boxes_to_labels_unified(
                 "unmapped_indices": [],
             }
 
+    # 先统一坐标字段和框索引，后续视觉与启发式两条路径共用同一格式。
     normalized_boxes = []
     for i, b in enumerate(boxes):
         normalized_boxes.append(
@@ -448,6 +473,7 @@ async def map_detection_boxes_to_labels_unified(
         if scope_model.is_restricted():
             scope_note = f"\n用户标注范围：{scope_model.scope_summary or scope_model.to_payload().model_dump()}"
 
+        # 先确定本张图的有效候选池，再让各个裁剪框从中选择标签。
         pool = await resolve_effective_label_candidates(
             llm,
             all_candidates=scoped_candidates,
@@ -474,6 +500,7 @@ async def map_detection_boxes_to_labels_unified(
         normalized = _coords_are_normalized(normalized_boxes)
         # 裁剪 + 缩放到 768 + JPEG 编码 + base64 是同步 CPU 重活，
         # 一批图可能有上千个框；走线程池避免阻塞事件循环。
+        # 图片裁剪与编码放到线程池，避免长时间占住处理其他异步请求的事件循环。
         regions = await asyncio.to_thread(
             _crop_boxes_from_image_bytes,
             image_bytes,
@@ -481,6 +508,7 @@ async def map_detection_boxes_to_labels_unified(
             normalized=normalized,
         )
         instance_labels = labels_require_vision_mapping(label_candidates)
+        # mappings 每项用 box_index 对应原框，用 label_id 对应项目标签；空 ID 表示未可靠匹配。
         mappings, retry_rounds = await _vision_map_with_validation_retry(
             llm,
             regions,

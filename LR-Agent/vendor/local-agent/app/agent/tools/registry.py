@@ -1,3 +1,5 @@
+# 学习导航：内置工具总注册表：给模型提供工具名称、说明和参数结构，并连接到实际执行函数。
+# 先看 build_tools_by_name_set，再看 _build_all_tools；工具是否交给客户端由 tool_registry_meta.py 标记。
 """Assist 模式工具注册表。
 
 由 orchestrator 调用 build_tools_p1 构建工具列表，assist_service 通过 tool_fn_map 按名称执行。
@@ -52,6 +54,7 @@ ANNOTATION_TOOL_NAMES: frozenset[str] = frozenset(
 
 
 # Pydantic args_schema for client tools — forces LLM to include user_request as a required param
+# 递归移除参数 JSON Schema 中冗余的 title，减少重复说明占用模型上下文。
 def _strip_titles(node: Any) -> Any:
     """递归剥掉 JSON schema 里的 title：pydantic 自动生成，键名已表达同一语义。"""
     if isinstance(node, dict):
@@ -64,9 +67,11 @@ def _strip_titles(node: Any) -> Any:
     return node
 
 
+# 工具参数模型的公共基类，统一精简导出的 JSON Schema。
 class SlimArgsModel(BaseModel):
     """工具参数基类：schema 不带 title（每字段省 ~30 字符的工具前缀）。"""
 
+    # 先让 Pydantic 生成标准参数结构，再递归清理 title；字段类型和校验约束保持不变。
     @classmethod
     def model_json_schema(cls, *args: Any, **kwargs: Any) -> dict:
         return _strip_titles(super().model_json_schema(*args, **kwargs))
@@ -74,6 +79,7 @@ class SlimArgsModel(BaseModel):
 
 # 字段描述只写参数语义；「何时填」的行为纪律在标注模式的系统提示块里
 # （context_snapshot.ANNOTATION_CALL_GUIDE），避免为每个工具调用重复携带。
+# 自动标注工具的参数约定：用户需求、目标范围、标签/检测相关选项。
 class AutoAnnotateArgs(SlimArgsModel):
     user_request: str = Field(
         min_length=1,
@@ -125,6 +131,7 @@ class AutoAnnotateArgs(SlimArgsModel):
     )
 
 
+# 已有标注的修改参数，区分重新生成与对已有实例的定向修正。
 class MutateAnnotationArgs(SlimArgsModel):
     user_request: str = Field(min_length=1, description="必须原样传递用户的原始请求")
     paths: list[str] | None = Field(
@@ -137,6 +144,7 @@ class MutateAnnotationArgs(SlimArgsModel):
     )
 
 
+# 精确替换参数：旧文字、新文字和是否替换全部匹配；无需让模型重写整份文件。
 class StrReplaceArgs(SlimArgsModel):
     relative_path: str = Field(min_length=1, description="要修改的相对路径")
     old_string: str = Field(min_length=1, description="文件中必须唯一出现的原文片段")
@@ -147,10 +155,12 @@ class StrReplaceArgs(SlimArgsModel):
     )
 
 
+# 删除提案的目标路径参数；只提供参数结构不会立即删除文件。
 class DeleteWorkspaceFileArgs(SlimArgsModel):
     relative_path: str = Field(min_length=1, description="要删除的相对路径")
 
 
+# 移动提案的原路径与新路径参数。
 class MoveWorkspaceFileArgs(SlimArgsModel):
     relative_path: str = Field(min_length=1, description="原相对路径")
     new_relative_path: str = Field(
@@ -159,6 +169,7 @@ class MoveWorkspaceFileArgs(SlimArgsModel):
     )
 
 
+# 只读探索的问题与可选关注路径，复杂查阅可以委托给独立子代理。
 class ExploreReadonlyArgs(SlimArgsModel):
     query: str = Field(min_length=1, description="要查阅的问题或目标")
     focus_path: str | None = Field(
@@ -167,6 +178,7 @@ class ExploreReadonlyArgs(SlimArgsModel):
     )
 
 
+# 占位实现，只提示必须由编排层接管；entry.py 会把它替换成真正的子代理工具。
 def _explore_readonly_stub(query: str, focus_path: str | None = None) -> str:
     return json.dumps(
         {
@@ -179,15 +191,18 @@ def _explore_readonly_stub(query: str, focus_path: str | None = None) -> str:
     )
 
 
+# 返回一个占位函数，供 StructuredTool 描述客户端工具；本地调用它不会执行真实标注。
 def _client_tool_stub(tool_name: str) -> StructuredTool:
     """返回一个客户端工具的 schema 存根（func 不会被本地调用）。"""
     # assist_service 在执行工具前会先检测 CLIENT_TOOL_NAMES，拦截并发出 tool_pending
+    # 误从后端执行客户端工具时返回说明文字；真正执行入口在客户端的 pending/resume 流程。
     def _unreachable(**_kwargs: object) -> str:  # noqa: ANN001
         return f"[{tool_name}] 此工具应由前端执行，本地调用不应发生。"
     _unreachable.__name__ = tool_name
     return _unreachable
 
 
+# 兼容旧调用名称，直接创建完整内置工具列表；按模式学习时优先看下面的子集构造函数。
 def build_tools_p1(
     user: User,
     client_context: ClientContextInput | None,
@@ -199,6 +214,7 @@ def build_tools_p1(
     return _build_all_tools(user, client_context, settings=settings, provider_is_vision=provider_is_vision)
 
 
+# 先构造统一注册表，再按 tool_set 名称白名单筛选，得到本次对模型可见的工具。
 def build_tools_by_name_set(
     user: User,
     client_context: ClientContextInput | None,
@@ -209,9 +225,11 @@ def build_tools_by_name_set(
 ) -> list[StructuredTool]:
     """构建指定名称的工具子集。"""
     all_tools = _build_all_tools(user, client_context, settings=settings, provider_is_vision=provider_is_vision)
+    # 名称过滤决定本轮可见范围；参数校验通过也不代表可以绕过执行阶段的业务检查。
     return [t for t in all_tools if t.name in tool_set]
 
 
+# 在一次请求内构造工具及其闭包；闭包让工具读取当前上下文和配置而无需模型填写这些参数。
 def _build_all_tools(
     user: User,
     client_context: ClientContextInput | None,
@@ -222,8 +240,10 @@ def _build_all_tools(
     """构建工具集：只读工具 + 写文件提案工具 + 客户端工具 schema 存根。"""
     # 本轮请求内未落盘提案的内容接力（见 workspace_file_reader.PendingProposalContents），
     # 工具集每次请求重建，缓存生命周期即一轮。
+    # 临时缓存“文件绝对路径 →（磁盘原文快照或 None，提案新内容）”，本请求内可在尚未落盘的提案上继续编辑。
     pending_proposals: dict[str, tuple[str | None, str]] = {}
 
+    # 根据注入的本地用户对象返回账户说明；匿名本地模式不查询云端账户数据库。
     def account_summary() -> str:
         # 本地无状态模式（agent.py 注入匿名用户）：如实说明，不展示占位账户
         if user.username == "anonymous" and str(user.email).endswith("@local"):
@@ -239,6 +259,7 @@ def _build_all_tools(
             f"用户名: {user.username or '未设置'}"
         )
 
+    # 把当前工作区、文件和标注模式整理成文字，让模型知道用户正在操作什么。
     def describe_context() -> str:
         if client_context is None:
             return "客户端未提供当前界面上下文。"
@@ -263,14 +284,17 @@ def _build_all_tools(
             return "工作区已连接，但未打开具体文件或标注项目。"
         return "\n".join(parts)
 
+    # 读取客户端提供的项目快照并格式化；没有快照时返回明确提示。
     def describe_annotation_project() -> str:
         if client_context is None or client_context.annotation_project_snapshot is None:
             return "当前未绑定标注项目快照。请确认用户已在标注任务中打开项目。"
         return format_snapshot_for_prompt(client_context.annotation_project_snapshot)
 
+    # 把模型选择的主题交给帮助说明函数，不触发外部请求。
     def help_tool(topic: str | None = None) -> str:
         return get_lr_agent_help(topic)
 
+    # 从项目标注 JSON 读取指定图片的已有标注，按 offset/limit 分页并限制总输出长度。
     def read_file_annotation(
         relative_path: str,
         annotation_offset: int = 0,
@@ -305,6 +329,7 @@ def _build_all_tools(
             )
         return note + text
 
+    # 读代码/文本工具的包装函数，把当前上下文和可选行号传给文件读取器。
     def read_workspace_file(
         relative_path: str = "",
         start_line: int | None = None,
@@ -318,6 +343,7 @@ def _build_all_tools(
             end_line=end_line,
         )
 
+    # 按正则搜索工作区文本，并把配置中的扫描数量限制传给搜索器。
     def grep_tool(
         pattern: str,
         path: str = "",
@@ -333,6 +359,7 @@ def _build_all_tools(
             settings=settings,
         )
 
+    # 列出指定相对目录的直接子项，帮助模型先了解目录结构。
     def list_directory_tool(relative_dir: str = "") -> str:
         return list_workspace_directory(
             client_context,
@@ -340,6 +367,7 @@ def _build_all_tools(
             settings=settings,
         )
 
+    # 按通配符查找文件路径，不读取每个文件正文。
     def glob_tool(glob_pattern: str, relative_dir: str = "") -> str:
         return glob_workspace(
             client_context,
@@ -348,6 +376,7 @@ def _build_all_tools(
             settings=settings,
         )
 
+    # 读取图片元信息并返回内部路径标记，随后由视觉中间件构造真正的图片消息。
     def read_image_for_vision(relative_path: str = "") -> str:
         return read_image_for_vision_tool(
             client_context,
@@ -355,14 +384,17 @@ def _build_all_tools(
             provider_is_vision=provider_is_vision,
         )
 
+    # 提取 PDF/DOCX 正文，交给模型阅读；文件类型和读取数量由底层检查。
     def read_document(relative_path: str = "") -> str:
         return read_document_file(client_context, relative_path, settings=settings)
 
+    # 准备完整文件内容的提案，并将暂存内容留给本请求后续编辑使用。
     def write_file(relative_path: str, content: str) -> str:
         return write_workspace_file_tool(
             client_context, relative_path, content, pending_proposals
         )
 
+    # 对磁盘内容或当前暂存提案做精确文字替换，返回新的完整文件提案。
     def str_replace_file(
         relative_path: str,
         old_string: str,
@@ -378,17 +410,20 @@ def _build_all_tools(
             pending_proposals=pending_proposals,
         )
 
+    # 生成删除文件提案，实际删除要等客户端确认应用。
     def delete_file(relative_path: str) -> str:
         return delete_workspace_file_tool(
             client_context, relative_path, pending_proposals
         )
 
+    # 生成移动/重命名提案，实际磁盘操作由客户端确认后完成。
     def move_file(relative_path: str, new_relative_path: str) -> str:
         return move_workspace_file_tool(
             client_context, relative_path, new_relative_path, pending_proposals
         )
 
     # Phase 1 工具集（只读 + 写文件提案）
+    # StructuredTool 把执行函数、模型可见名称、用途说明和参数 schema 包装成一个工具对象。
     tools = [
         StructuredTool.from_function(
             func=account_summary,
@@ -564,9 +599,11 @@ def _build_all_tools(
     return tools
 
 
+# 为只有异步接口的工具创建包装协程，继续通过工具 ainvoke 保留框架的返回值处理。
 def _async_structured_caller(tool: StructuredTool) -> Callable[..., Any]:
     """MCP 等仅有 coroutine 的工具：经 ainvoke 执行，保留 content_and_artifact 处理。"""
 
+    # 把关键字参数收成一个参数字典，交给 StructuredTool.ainvoke。
     async def _call(**kwargs: Any) -> Any:
         return await tool.ainvoke(kwargs)
 
@@ -574,6 +611,8 @@ def _async_structured_caller(tool: StructuredTool) -> Callable[..., Any]:
     return _call
 
 
+# 生成“名称 → 函数”字典，兼容本地同步函数与 MCP 异步工具。
+# 模型看 schema 来决定怎么调用，执行器通过此映射找到真正的实现。
 def tool_fn_map(tools: list[StructuredTool]) -> dict[str, Callable[..., Any]]:
     """将 StructuredTool 列表转为 name → 可调用映射，供 assist_service 本地执行。
 

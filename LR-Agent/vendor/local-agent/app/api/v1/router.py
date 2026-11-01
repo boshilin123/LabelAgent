@@ -1,3 +1,4 @@
+# 学习导航：汇总聊天 Agent、标注处理和质量报告路由；local_main.py 再统一添加 /api/v1 前缀与 token 依赖。
 from fastapi import APIRouter
 
 from app.api.v1 import (

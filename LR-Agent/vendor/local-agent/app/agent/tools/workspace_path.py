@@ -1,3 +1,5 @@
+# 学习导航：所有工作区读写工具共用的路径解析规则：先确定允许的根目录，再解析和校验目标。
+# 返回值通常为（路径，错误文字）；失败使用 None 表示，调用方据此给出工具反馈。
 """工作区 / 项目文件路径解析与安全校验。
 
 所有文件读取工具（workspace_file_reader、assist_vision）的统一入口：
@@ -14,6 +16,7 @@ from app.agent.context_helpers import project_directory
 from app.schemas.agent import ClientContextInput
 
 
+# 只统一斜杠、空段和点号写法；真正的根目录边界检查在 resolve 系列函数中。
 def normalize_relative_path(relative_path: str) -> str:
     """将相对路径统一为正斜杠格式，去除空段与 `.`。"""
     return "/".join(part for part in relative_path.replace("\\", "/").split("/") if part and part != ".")
@@ -25,12 +28,14 @@ LR_AGENT_WRITE_DENIED = (
 )
 
 
+# 检查路径中是否包含 .lr-agent 目录段，保护项目内部标注数据。
 def is_lr_agent_relative(relative_path: str) -> bool:
     """相对路径是否落入 .lr-agent 标注库目录。"""
     parts = [p for p in normalize_relative_path(relative_path).split("/") if p]
     return any(part == LR_AGENT_DIR for part in parts)
 
 
+# 把绝对目标转为根内相对路径，再检查是否进入内部标注目录。
 def _is_lr_agent_under_root(candidate: Path, root: Path) -> bool:
     try:
         rel = candidate.relative_to(root)
@@ -39,6 +44,7 @@ def _is_lr_agent_under_root(candidate: Path, root: Path) -> bool:
     return any(part == LR_AGENT_DIR for part in rel.parts)
 
 
+# 按项目目录优先、工作区其次的顺序返回去重后的绝对根目录，与提案应用时的根目录约定一致。
 def allowed_roots(client_context: ClientContextInput | None) -> list[Path]:
     """返回可访问的根目录列表（项目目录优先 + 工作区根，去重）。
 
@@ -47,6 +53,7 @@ def allowed_roots(client_context: ClientContextInput | None) -> list[Path]:
     计算，若后端 workspace 优先而前端 project 优先，Keep All 会把文件
     写到另一个根下（历史隐患：同文件在两个根各落一份）。
     """
+    # roots 保留优先顺序，seen 只用来去重；不能随意改成无序集合。
     roots: list[Path] = []
     seen: set[str] = set()
     if client_context is None:
@@ -69,6 +76,7 @@ def allowed_roots(client_context: ClientContextInput | None) -> list[Path]:
     return roots
 
 
+# 使用 Path.relative_to 判断目标是否属于根目录，避免只比较字符串前缀。
 def _is_under_root(candidate: Path, root: Path) -> bool:
     """判断 candidate 是否在 root 目录树下。"""
     try:
@@ -78,6 +86,7 @@ def _is_under_root(candidate: Path, root: Path) -> bool:
         return False
 
 
+# 将合法绝对路径变成相对显示路径，让流式提案与最终工具结果使用一致的路径标识。
 def relative_display_path(
     client_context: ClientContextInput | None,
     resolved: Path,
@@ -92,6 +101,7 @@ def relative_display_path(
     return fallback.strip()
 
 
+# 优先按写入规则解析路径再生成显示路径；无法解析时只做形式归一，仍需工具后续校验。
 def normalize_write_display_path(
     client_context: ClientContextInput | None,
     raw_path: str,
@@ -109,6 +119,7 @@ def normalize_write_display_path(
     return relative_display_path(client_context, resolved, raw_path)
 
 
+# 解析已存在文件的绝对/相对路径，检查工作区边界；失败返回 None 和原因。
 def resolve_workspace_file(
     client_context: ClientContextInput | None,
     path: str,
@@ -160,6 +171,7 @@ def resolve_workspace_file(
     return None, f"未找到文件：{rel}"
 
 
+# 解析可访问目录，供目录列表和递归搜索共用。
 def resolve_workspace_directory(
     client_context: ClientContextInput | None,
     path: str,
@@ -205,6 +217,7 @@ def resolve_workspace_directory(
     return None, f"未找到目录：{rel}"
 
 
+# 按允许根目录顺序尝试生成相对路径，输出统一使用正斜杠。
 def relative_path_from_roots(candidate: Path, roots: list[Path]) -> str:
     """将绝对路径转为相对工作区根的路径（正斜杠）。"""
     for root in roots:
@@ -215,6 +228,7 @@ def relative_path_from_roots(candidate: Path, roots: list[Path]) -> str:
     return candidate.name
 
 
+# 校验写入目标属于允许根且不指向内部标注目录；文件尚不存在也可以生成提案。
 def resolve_workspace_write_path(
     client_context: ClientContextInput | None,
     path: str,
@@ -234,6 +248,7 @@ def resolve_workspace_write_path(
     if not roots:
         return None, "未绑定工作区或项目目录，无法写入本地文件。"
 
+    # 先判断输入是绝对路径还是相对路径，再分别解析到允许的根目录。
     candidate_input = Path(raw)
     if candidate_input.is_absolute():
         try:

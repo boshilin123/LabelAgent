@@ -1,8 +1,11 @@
+# 学习导航：解析单个模型输出分片的通用辅助器；完整图事件和轮末工具处理在 langchain_runtime/sse_adapter.py。
 from langchain_core.messages import AIMessageChunk
 
 from app.schemas.agent import StreamEventPayload
 
 
+# 从 AIMessageChunk 中分别提取文字、推理内容和可选工具参数分片，返回业务事件列表。
+# emit_tool_chunks=False 时只处理文字/推理，工具事件交给上层完整轮次逻辑处理。
 def events_from_chunk(
     chunk: AIMessageChunk,
     *,
@@ -19,6 +22,7 @@ def events_from_chunk(
                 if text:
                     events.append(StreamEventPayload(type="text_delta", content=text))
 
+    # 部分兼容接口把推理内容放在 reasoning_content，而普通回答文字在 content 中。
     additional = getattr(chunk, "additional_kwargs", None) or {}
     reasoning = additional.get("reasoning_content")
     if reasoning:

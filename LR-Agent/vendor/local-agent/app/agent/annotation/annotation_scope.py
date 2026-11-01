@@ -1,3 +1,4 @@
+# 学习导航：整理“只标哪些/排除哪些”的范围约束，兼容结构化输入及用户文字中的常见表达。
 """Annotation scope filtering & merge (fusion-reasoning parity)."""
 from __future__ import annotations
 
@@ -31,6 +32,7 @@ EXCLUDE_RE = re.compile(
 )
 
 
+# 内部范围模型，分别保存检测类名和项目标签名称的包含/排除清单。
 class AnnotationScope(BaseModel):
     scope_summary: str = ""
     include_detection_labels: list[str] = Field(default_factory=list)
@@ -38,6 +40,7 @@ class AnnotationScope(BaseModel):
     include_label_names: list[str] = Field(default_factory=list)
     exclude_label_names: list[str] = Field(default_factory=list)
 
+    # 字段校验前将 None、单个字符串或列表整理成字符串列表，避免模型返回格式不一致。
     @field_validator(
         "include_detection_labels",
         "exclude_detection_labels",
@@ -56,6 +59,7 @@ class AnnotationScope(BaseModel):
             return [str(item).strip() for item in v if str(item).strip()]
         return []
 
+    # 检查是否存在摘要或任一范围列表，判断是否带有显式约束。
     def is_restricted(self) -> bool:
         return bool(
             self.scope_summary.strip()
@@ -65,6 +69,7 @@ class AnnotationScope(BaseModel):
             or self.exclude_label_names
         )
 
+    # 转成传输用的 AnnotationScopePayload，并复制列表字段。
     def to_payload(self) -> AnnotationScopePayload:
         return AnnotationScopePayload(
             scope_summary=self.scope_summary,
@@ -74,6 +79,7 @@ class AnnotationScope(BaseModel):
             exclude_label_names=list(self.exclude_label_names),
         )
 
+    # 兼容 Pydantic 载荷、普通字典或 None，统一生成内部范围模型。
     @classmethod
     def from_payload(cls, payload: AnnotationScopePayload | dict[str, Any] | None) -> AnnotationScope:
         if payload is None:
@@ -85,10 +91,12 @@ class AnnotationScope(BaseModel):
         return cls()
 
 
+# 统一检测类名的大小写、下划线和空白，方便匹配别名。
 def normalize_detection_label(label: str) -> str:
     return re.sub(r"\s+", " ", (label or "").strip().lower().replace("_", " "))
 
 
+# 把常见中文目标扩展为检测类名别名，并按归一化名称去重。
 def expand_detection_aliases(terms: list[str]) -> list[str]:
     out: list[str] = []
     seen: set[str] = set()
@@ -104,6 +112,7 @@ def expand_detection_aliases(terms: list[str]) -> list[str]:
     return out
 
 
+# 使用给定正则提取短范围词，供包含与排除两类规则共用；不进行模型请求。
 def _extract_scope_terms(text: str, pattern: re.Pattern[str]) -> list[str]:
     terms: list[str] = []
     for m in pattern.finditer(text):
@@ -114,6 +123,7 @@ def _extract_scope_terms(text: str, pattern: re.Pattern[str]) -> list[str]:
     return terms
 
 
+# 依据“只标注”“排除”等有限规则推断范围；这是文字规则辅助，不是完整语义理解。
 def infer_annotation_scope_from_text(
     user_text: str,
     *,
@@ -164,6 +174,7 @@ def infer_annotation_scope_from_text(
     return scope
 
 
+# 保留调用方已经明确填写的约束，只用文字推断补充空缺字段。
 def merge_annotation_scope(
     scope: AnnotationScopePayload | AnnotationScope | None,
     user_text: str,
@@ -185,6 +196,8 @@ def merge_annotation_scope(
     return base
 
 
+# 按标签名称包含/排除清单过滤候选；若过滤后为空，当前实现回退原候选列表。
+# 检测类名范围与标签名称范围是两套字段，此函数仅处理后者。
 def filter_label_candidates_by_scope(
     candidates: list[dict],
     scope: AnnotationScope,

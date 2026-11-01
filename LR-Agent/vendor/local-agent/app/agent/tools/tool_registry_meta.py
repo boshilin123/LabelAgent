@@ -1,3 +1,4 @@
+# 学习导航：工具执行归属的统一登记处。SYNC/PROPOSAL/ASYNC 是业务分类，不是 Python def/async def 语法分类。
 """工具注册元数据：runner 类型、能力分类与副作用分类（Agent 调度单一真相源）。"""
 
 from __future__ import annotations
@@ -5,6 +6,7 @@ from __future__ import annotations
 from enum import Enum
 
 
+# SYNC 由后端处理结果；PROPOSAL 由后端准备变更待确认；ASYNC 暂停回合交客户端执行。
 class ToolRunner(str, Enum):
     """工具执行器类型。"""
 
@@ -13,6 +15,7 @@ class ToolRunner(str, Enum):
     ASYNC = "async"  # 暂停 loop，由 Electron 执行后 resume
 
 
+# 描述工具提供的能力，供本地与外部工具合并时参考。
 class ToolCapability(str, Enum):
     """工具能力抽象——每个经典工具对应一个唯一能力，防止双轨制。"""
 
@@ -96,13 +99,16 @@ ASYNC_TOOL_NAMES: frozenset[str] = frozenset(
 CLIENT_TOOL_NAMES = ASYNC_TOOL_NAMES
 
 
+# 按工具名查执行类型；未特别登记的动态工具默认按后端 SYNC 类处理。
 def get_tool_runner(name: str) -> ToolRunner:
     return TOOL_RUNNERS.get(name, ToolRunner.SYNC)
 
 
+# 判断工具是否需要 pending 给客户端；返回 True 不表示该 Python 函数只是一个普通协程。
 def is_async_tool(name: str) -> bool:
     return get_tool_runner(name) is ToolRunner.ASYNC
 
 
+# 判断工具是否只准备文件变更提案，便于轮末结束并等待确认。
 def is_proposal_tool(name: str) -> bool:
     return get_tool_runner(name) is ToolRunner.PROPOSAL

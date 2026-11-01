@@ -1,3 +1,4 @@
+# 学习导航：用标签名称与标准检测类名的匹配情况，启发式判断是否需要视觉模型做进一步标签区分。
 """标签视觉映射策略：判断任务标签是否必须启用视觉映射。
 
 当项目标签名与 YOLO/COCO 标准检测类名无交集时（如球员姓名 Curry/James vs person），
@@ -94,10 +95,13 @@ YOLO_COCO_CLASS_NAMES = frozenset(
 )
 
 
+# 统一标签名称的格式，供标准类名匹配使用。
 def _norm_label(name: str) -> str:
     return (name or "").strip().lower().replace("_", " ")
 
 
+# 检查候选标签是否命中已知检测类名；没有命中时倾向启用视觉映射。
+# 这是名称规则，不能据此证明模型已经识别出了具体人物或实例。
 def labels_require_vision_mapping(label_candidates: list[dict]) -> bool:
     """判断标签候选是否需视觉映射：无标签名命中标准检测类名时返回 True。"""
     names = [_norm_label(str(c.get("name") or "")) for c in label_candidates]

@@ -1,3 +1,4 @@
+# 学习导航：本地工具所需的轻量 User 数据结构，只保留兼容字段；本文件不是云端数据库用户表。
 """本地 User stub。
 
 云端 SQLAlchemy User 模型的轻量替代：Agent 工具（如 get_account_summary）
@@ -11,6 +12,7 @@ import uuid
 from dataclasses import dataclass, field
 
 
+# 用 dataclass 保存本次工具构造需要的用户信息，本地入口通常注入匿名用户。
 @dataclass
 class User:
     email: str

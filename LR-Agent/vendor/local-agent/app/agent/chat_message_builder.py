@@ -1,3 +1,4 @@
+# 学习导航：把本地图片或图片字节转成模型接口需要的多模态 HumanMessage。
 """Build LangChain messages including optional vision attachment for the latest user turn."""
 
 from __future__ import annotations
@@ -10,6 +11,7 @@ from langchain_core.messages import HumanMessage
 from app.agent.annotation.image_bytes_loader import load_image_bytes, resize_image_to_jpeg_bytes
 
 
+# 统一复用图片压缩逻辑，返回（JPEG 字节，MIME 类型），控制发送给模型的数据量。
 def _resize_image_bytes(
     raw: bytes,
     *,
@@ -19,6 +21,7 @@ def _resize_image_bytes(
     return resize_image_to_jpeg_bytes(raw, max_edge=max_edge, jpeg_quality=jpeg_quality)
 
 
+# 同步读取、压缩并编码图片，返回可放进 image_url 的 data URL。
 def _encode_image_data_url(
     *,
     image_absolute_path: str,
@@ -50,6 +53,7 @@ def _encode_image_data_url(
     return f"data:{mime};base64,{b64}"
 
 
+# 异步构建“文字 + 图片”消息；耗时的读盘和压缩放在线程中执行，失败时保留文字消息。
 async def build_multimodal_user_message(
     text: str,
     *,

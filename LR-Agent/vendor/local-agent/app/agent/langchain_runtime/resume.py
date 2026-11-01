@@ -1,3 +1,5 @@
+# 学习导航：跨 HTTP 请求续跑：用历史消息和客户端工具结果重建输入，再开启一次图运行。
+# 当前实现没有持久化 checkpointer，也不通过 Command(resume=...) 恢复服务器检查点。
 """阶段 3：客户端工具跨请求续跑（方案 A —— 保持请求体 ``client_tool_results``，**无 checkpointer**）。
 
 对应 ``docs/阶段3-跨请求续跑设计备忘.md`` §3-§5 与实施清单第 3-7、10 项。
@@ -84,6 +86,7 @@ __all__ = [
 # ── 阶段上下文 → 谎报防护开关 ──────────────────────────────────────────
 
 
+# 当前阶段为 VERIFY 时，表示已有提案经用户确认，可据此补充回传结果的提示。
 def proposals_applied(phase_ctx: TaskPhaseContext | None) -> bool:
     """用户是否已 Keep All（本请求处于 ``VERIFY`` 阶段）。
 
@@ -100,6 +103,7 @@ def proposals_applied(phase_ctx: TaskPhaseContext | None) -> bool:
 # ── 消息补齐 ───────────────────────────────────────────────────────────
 
 
+# 扫描历史 ToolMessage，收集已有结果的调用 ID；同名工具的新 ID 仍可正常调用。
 def answered_tool_call_ids(messages: Sequence[Any]) -> frozenset[str]:
     """输入消息里**已经有结果**的 ``tool_call_id``（用于重复投递幂等）。"""
     return frozenset(
@@ -109,6 +113,7 @@ def answered_tool_call_ids(messages: Sequence[Any]) -> frozenset[str]:
     )
 
 
+# 过滤在输入历史中已经有 ToolMessage 的回传结果，避免重复投递再次补消息。
 def unanswered_client_tool_results(
     messages: Sequence[Any],
     client_tool_results: Sequence[Any] | None,
@@ -131,6 +136,7 @@ def unanswered_client_tool_results(
     ]
 
 
+# 复制输入消息，再为尚未回答的客户端调用补充结果；不直接修改调用方的历史列表。
 def prepare_resume_messages(
     lc_messages: Sequence[Any],
     client_tool_results: Sequence[Any] | None = None,
@@ -147,6 +153,7 @@ def prepare_resume_messages(
       ``client_tool_results`` 里的 id，其余挂起调用保持无结果（与旧路径同态）。
     """
     messages = list(lc_messages)
+    # fresh 只包含在输入历史中尚无 ToolMessage 的回传结果，避免把历史已有答案再次加入。
     fresh = unanswered_client_tool_results(messages, client_tool_results)
     if not fresh:
         return messages
@@ -161,6 +168,7 @@ def prepare_resume_messages(
 # ── 跨请求 ``completed_tool_ids`` 播种 ─────────────────────────────────
 
 
+# 从客户端回传结果提取已完成 ID 集合，供后续执行规则阻止重复执行。
 def completed_tool_ids_from(
     client_tool_results: Sequence[Any] | None,
 ) -> frozenset[str]:
@@ -172,6 +180,7 @@ def completed_tool_ids_from(
     )
 
 
+# 为 AgentContext 加入已完成 ID；需要更新时返回副本，无变化时复用原对象，不就地修改。
 def with_completed_tool_ids(
     context: AgentContext,
     tool_call_ids: Iterable[str],
@@ -192,6 +201,7 @@ def with_completed_tool_ids(
 # ── 一次 resume 请求的完整输入 ─────────────────────────────────────────
 
 
+# 把续跑需要的消息和上下文打包，供图驱动统一使用。
 @dataclass(frozen=True)
 class ResumeTurn:
     """一次 resume 请求交给候选 Agent 的 ``(messages, context)``。
@@ -205,6 +215,7 @@ class ResumeTurn:
     completed_tool_ids: frozenset[str] = frozenset()
 
 
+# 同时完成结果去重、ToolMessage 补齐和 context 更新，返回可直接执行的续跑输入。
 def prepare_resume_turn(
     lc_messages: Sequence[Any],
     client_tool_results: Sequence[Any] | None = None,
@@ -241,12 +252,14 @@ def prepare_resume_turn(
     if updates:
         base = base.model_copy(update=updates)
 
+    # 消息通道补上客户端实际返回的结果，模型才能据此继续推理。
     messages = prepare_resume_messages(
         lc_messages,
         client_tool_results,
         user_content=user_content,
         phase_ctx=phase_ctx if phase_ctx is not None else base.task_phase_context,
     )
+    # 上下文通道另存已完成 ID，供后续本轮计划检查重复调用；它与消息配对各有职责。
     completed = completed_tool_ids_from(client_tool_results)
     return ResumeTurn(
         messages=messages,
@@ -258,6 +271,7 @@ def prepare_resume_turn(
 # ── 候选 Agent 组装（顺序与阶段 2 一致）────────────────────────────────
 
 
+# 为独立续跑场景创建带业务中间件的官方 Agent；主入口也可直接用 entry.py 装配。
 def build_resume_agent(
     model: Any,
     tools: Sequence[Any],
@@ -293,6 +307,7 @@ def build_resume_agent(
 # ── 流入口 ─────────────────────────────────────────────────────────────
 
 
+# 将 ResumeTurn 传给原始事件驱动，并关闭兼容旧流程的早停方式。
 async def stream_resume_raw_events(
     agent: Any,
     turn: ResumeTurn,

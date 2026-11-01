@@ -1,3 +1,6 @@
+# 学习导航：当前默认 Agent 内核已经接入 HTTP 路由，配置值为 candidate，实际调用官方 create_agent。
+# 下方文档中的“尚未接入生产路由”是阶段 1/2 的历史描述；当前调用请以 entry.py 和 api/v1/agent.py 为准。
+# 本文件集中导出运行时符号；构建图看 runtime.py，业务装配看 entry.py，事件映射看 sse_adapter.py。
 """阶段 1+2 候选内核：官方 ``create_agent`` 封装（后端专用）。
 
 **尚未接入生产路由**：本包不被 ``app/api/v1/agent.py`` 或 ``stream_assist`` 引用，

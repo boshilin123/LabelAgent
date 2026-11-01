@@ -1,3 +1,4 @@
+# 学习导航：消息配对与客户端结果补齐，默认 Agent 的 resume 模块和兼容流程都会复用这里。
 """对话上下文服务：Assist resume 与 chat 系统提示词。"""
 
 from __future__ import annotations
@@ -28,13 +29,16 @@ RESUME_APPLIED_NEXT_HINT = (
 )
 
 
+# 从工具调用字典或对象中取唯一 ID，并清理空白。
 def _tool_call_id(tool_call: object) -> str:
     if isinstance(tool_call, dict):
         return str(tool_call.get("id") or tool_call.get("tool_call_id") or "").strip()
     return str(getattr(tool_call, "id", "") or "").strip()
 
 
+# 分别收集 AI 声明的调用和已有 ToolMessage 的调用，做差集得到尚未回答的 ID。
 def unanswered_tool_call_ids(lc_messages: list) -> set[str]:
+    # declared 是模型发起过的 ID，answered 是已经有结果的 ID；集合比较和工具名称无关。
     declared: set[str] = set()
     answered: set[str] = set()
     for message in lc_messages:
@@ -48,6 +52,7 @@ def unanswered_tool_call_ids(lc_messages: list) -> set[str]:
     return declared - answered
 
 
+# 为客户端结果补上下一步提示；仅在确认阶段且原结果确有待确认提案时修正落盘标志。
 def enrich_resume_tool_result(result: str, *, proposals_applied: bool = False) -> str:
     """为 resume 的客户端工具结果补上 next_hint（已有则保留）。
 
@@ -70,6 +75,8 @@ def enrich_resume_tool_result(result: str, *, proposals_applied: bool = False) -
     return json.dumps(data, ensure_ascii=False)
 
 
+# 在传入消息列表中补齐客户端工具结果，并返回同一列表。
+# 历史已有未回答的调用时只补结果；找不到声明时先补 AIMessage，再补配对 ToolMessage。
 def append_client_tool_results_to_messages(
     lc_messages: list,
     client_tool_results: list,
@@ -81,6 +88,7 @@ def append_client_tool_results_to_messages(
     if not client_tool_results:
         return lc_messages
 
+    # 默认运行时会先在 resume.py 过滤已有结果；本辅助函数负责消息结构补齐。
     unanswered = unanswered_tool_call_ids(lc_messages)
 
     for ctr in client_tool_results:
@@ -92,6 +100,7 @@ def append_client_tool_results_to_messages(
             unanswered.discard(ctr.tool_call_id)
             continue
 
+        # 历史缺少 AI 调用声明时构造最小参数，保证后续 ToolMessage 在协议上有对应的调用。
         args: dict = {"user_request": user_content.strip()}
         try:
             parsed = json.loads(ctr.result)

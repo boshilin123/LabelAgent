@@ -1,3 +1,5 @@
+# 学习导航：默认 Agent 的业务装配入口。建议先读 stream_candidate_engine_sse，再读 build_engine_agent。
+# 调用顺序：HTTP 路由 → 本文件 → runtime.build_langchain_agent → 官方 create_agent；执行时再走 astream。
 """当前默认 Agent 引擎的 **SSE 入口**（配置名称保留为 ``candidate``）。
 
 本模块是「旧 HTTP 层前置段 + 候选内核」的粘合层，按迁移计划 §5-阶段 7 的要求：
@@ -78,6 +80,7 @@ CANDIDATE_STREAM_MODES: tuple[str, ...] = ("messages", "updates", "custom")
 """
 
 
+# 把一个业务事件转成 SSE 文本帧；data: 后是 JSON，末尾两个换行表示这一帧结束。
 def sse_frame(payload: StreamEventPayload) -> str:
     """把项目事件载荷编码为旧路径同格式的 SSE 帧（= ``agent.py:489-496``）。"""
     return "data: " + json.dumps(payload.to_sse_dict(), ensure_ascii=False) + "\n\n"
@@ -86,6 +89,7 @@ def sse_frame(payload: StreamEventPayload) -> str:
 # ── 装配期决策（phase 1 / phase 2 分支的判据）──────────────────────────
 
 
+# 记录本次装配选用了哪些工具、流模式和续跑选项，便于观测；它不负责执行工具。
 class AgentRunPlan(BaseModel):
     """一次候选运行的装配决策（**只读**，供日志与本阶段测试观测）。
 
@@ -106,6 +110,8 @@ class AgentRunPlan(BaseModel):
     client_job_id: str = ""
 
 
+# 组装需要订阅的流：messages 看逐段输出，updates 看节点更新，custom 看自定义业务事件。
+# 必须保留 custom，否则子代理和视觉回退的进度事件无法传出来。
 def assemble_stream_modes(
     overrides: Mapping[str, Any] | None = None,
     *,
@@ -140,10 +146,12 @@ def assemble_stream_modes(
     return tuple(modes)
 
 
+# 兼容工具对象的名称读取，并统一转成字符串，供后续校验使用。
 def _tool_name(tool: Any) -> str:
     return str(getattr(tool, "name", "") or "")
 
 
+# 根据已选工具生成本次运行计划；工具列表为空时直接报错，尽早发现装配遗漏。
 def build_agent_run_plan(
     *,
     tools: Sequence[Any],
@@ -180,6 +188,7 @@ def build_agent_run_plan(
 # ── 旧前置段（逐条复刻 ``agent.py:147-436``）───────────────────────────
 
 
+# 只对匹配到的 DeepSeek 接口追加关闭思考模式的参数，其他模型保持默认请求格式。
 def _deepseek_extra_body(model: str, base_url: str) -> dict[str, Any] | None:
     """= ``agent.py:150-163`` / ``:191-204``（DeepSeek 关闭 Thinking 模式）。"""
     if "deepseek" in model.lower() or "deepseek" in base_url.lower():
@@ -187,6 +196,8 @@ def _deepseek_extra_body(model: str, base_url: str) -> dict[str, Any] | None:
     return None
 
 
+# 读取请求里的模型配置，返回（主模型，辅助模型）；这里只创建对象，还没有请求模型。
+# 辅助模型三项配置齐全才创建，后续只读子代理优先使用它。
 def build_llm_pair(body: LocalChatStreamRequest) -> tuple[Any, Any]:
     """构造主模型与辅助模型（= ``agent.py:148-214``）。
 
@@ -199,6 +210,7 @@ def build_llm_pair(body: LocalChatStreamRequest) -> tuple[Any, Any]:
         ChatOpenAI = _load_chat_openai()
     factory = ChatOpenAI
 
+    # base_url 是兼容接口的地址；api_key、model 和它一起决定请求发往哪里。
     base_url = body.base_url.rstrip("/")
     llm = factory(
         model=body.model,
@@ -210,6 +222,7 @@ def build_llm_pair(body: LocalChatStreamRequest) -> tuple[Any, Any]:
         extra_body=_deepseek_extra_body(body.model, base_url),
     )
 
+    # None 表示没有独立辅助模型，装配子代理时会回退到主模型。
     aux_llm: Any = None
     if body.aux_model.strip() and body.aux_api_key.strip() and body.aux_base_url.strip():
         aux_base_url = body.aux_base_url.strip().rstrip("/")
@@ -225,6 +238,7 @@ def build_llm_pair(body: LocalChatStreamRequest) -> tuple[Any, Any]:
     return llm, aux_llm
 
 
+# 第一次需要模型时才导入 ChatOpenAI，并缓存导入结果，避免模块加载就要求全部模型依赖。
 @lru_cache(maxsize=1)
 def _load_chat_openai() -> Any:
     """惰性解析 ``ChatOpenAI``（**模块导入期不 import langchain_openai**）。
@@ -244,6 +258,7 @@ ChatOpenAI: Any = None
 """
 
 
+# 检查请求是否带工作区或标注项目上下文；没有这些信息时改走普通聊天分支。
 def _has_tools(body: LocalChatStreamRequest) -> bool:
     """= ``agent.py:220-233``。"""
     client_ctx = body.client_context
@@ -257,10 +272,13 @@ def _has_tools(body: LocalChatStreamRequest) -> bool:
     )
 
 
+# 将 HTTP 请求中的历史消息转成 LangChain 消息对象，保持原来的对话顺序。
+# AIMessage 中声明工具调用，ToolMessage 通过 tool_call_id 回答对应调用，两者必须能配对。
 def _build_lc_messages(body: LocalChatStreamRequest, system_prompt: str) -> list:
     """= ``agent.py:75-130``（``_build_lc_messages_from_local``）。"""
     from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 
+    # lc_messages 是实际传给框架的消息列表，和请求里的普通 JSON 字典是两种表示。
     lc_messages: list = [SystemMessage(content=system_prompt)]
 
     if body.context_summary:
@@ -291,6 +309,7 @@ def _build_lc_messages(body: LocalChatStreamRequest, system_prompt: str) -> list
     return lc_messages
 
 
+# 把模型身份、项目上下文和当前任务阶段拼成系统提示词，作为模型理解任务的背景。
 def build_system_prompt(body: LocalChatStreamRequest) -> str:
     """= ``agent.py:238-278``：系统提示 + 任务阶段块。"""
     from app.agent.assist.task_phase import phase_prompt_block
@@ -325,6 +344,7 @@ def build_system_prompt(body: LocalChatStreamRequest) -> str:
     return system_prompt
 
 
+# 从客户端传来的提案状态推导当前阶段，供提示词和实际执行前的规则检查共同使用。
 def _derive_task_phase(body: LocalChatStreamRequest) -> Any:
     """= ``agent.py:241-245``。"""
     from app.agent.assist.task_phase import derive_task_phase
@@ -333,6 +353,7 @@ def _derive_task_phase(body: LocalChatStreamRequest) -> Any:
     return derive_task_phase(client_ctx.proposal_states if client_ctx else None)
 
 
+# 根据聊天/标注模式、工作区和项目快照挑选内置工具，然后交给 registry 构造工具对象。
 def build_local_tools(body: LocalChatStreamRequest, settings: Any) -> list:
     """= ``agent.py:287-329``：模式解析 + 工具集构建（复用注册表，不改 schema）。"""
     from app.agent.assist_mode_router import resolve_assist_tool_set
@@ -345,6 +366,7 @@ def build_local_tools(body: LocalChatStreamRequest, settings: Any) -> list:
     )
     is_editor = bool(client_ctx and client_ctx.work_mode == "editor")
 
+    # tool_set 只存允许的名称；工具参数说明和实际函数仍由统一注册表提供。
     tool_set = resolve_assist_tool_set(
         has_project_snapshot=has_project_snapshot,
         agent_mode=(client_ctx.agent_mode if client_ctx else None),
@@ -363,6 +385,7 @@ def build_local_tools(body: LocalChatStreamRequest, settings: Any) -> list:
     )
 
 
+# 发现外部 MCP 工具并与本地工具合并；发现失败时记录日志，保留可用的本地工具继续本轮。
 async def merge_mcp_tools(body: LocalChatStreamRequest, settings: Any, tools: list) -> list:
     """= ``agent.py:331-436``：MCP 发现 + 工具合并 + 稳定排序。
 
@@ -408,6 +431,7 @@ async def merge_mcp_tools(body: LocalChatStreamRequest, settings: Any, tools: li
     return sorted(merged, key=_tool_name)
 
 
+# 判断请求是否配置了本地或远程 MCP 来源，供发现流程和准备中事件使用。
 def _mcp_configured(body: LocalChatStreamRequest) -> bool:
     """= ``agent.py:355`` 的判据（配置了至少一个 MCP 源）。"""
     client_ctx = body.client_context
@@ -419,12 +443,14 @@ def _mcp_configured(body: LocalChatStreamRequest) -> bool:
 # ── 候选 Agent 组装 ────────────────────────────────────────────────────
 
 
+# 把工具列表变成“工具名 → 可调用函数”的字典，便于子代理按名称查找实现。
 def _fn_map(tools: Sequence[Any]) -> dict[str, Any]:
     from app.agent.tools.registry import tool_fn_map
 
     return tool_fn_map(list(tools))
 
 
+# 用真正的只读子代理替换注册表里的占位工具，并同步更新工具列表和函数映射。
 def _replace_explore_readonly(
     tools: Sequence[Any],
     fn_map: dict[str, Any],
@@ -468,6 +494,8 @@ def _replace_explore_readonly(
     return out_tools, out_fn_map
 
 
+# 本项目的业务装配函数：准备工具、中间件、消息和运行上下文，再调用 runtime 中的工厂。
+# 返回 agent、视觉消息所用模型及 resolved 材料；这里构图，后面的流式驱动才开始执行。
 def build_engine_agent(
     *,
     llm: Any,
@@ -509,6 +537,7 @@ def build_engine_agent(
     client_ctx = body.client_context
     max_tool_rounds = int(settings.agent_max_tool_rounds)
 
+    # fn_map 供只读子代理查找执行函数；agent_tools 则作为官方 Agent 的工具清单。
     fn_map = _fn_map(tools)
     agent_tools, agent_fn_map = _replace_explore_readonly(
         tools,
@@ -521,6 +550,7 @@ def build_engine_agent(
 
     vision_fn = agent_fn_map.get(VISION_TOOL_NAME)
 
+    # middleware 是模型调用前后、工具执行前后的处理规则，例如去重、阶段限制和预算收尾。
     middleware = build_business_middleware(
         max_tool_rounds=max_tool_rounds,
         phase_ctx=task_phase_ctx,
@@ -540,6 +570,7 @@ def build_engine_agent(
         ],
     )
 
+    # 继续跟进 runtime.py 的同名函数，即可看到真正调用官方 create_agent 的位置。
     agent = build_langchain_agent(
         llm,
         agent_tools,
@@ -548,12 +579,14 @@ def build_engine_agent(
     )
 
     lc_messages = _build_lc_messages(body, system_prompt)
+    # context 保存本次运行中供工具/中间件读取的背景；消息历史单独放在 messages 中。
     base_context = AgentContext(
         mode="assist",
         client_context=client_ctx,
         task_phase_context=task_phase_ctx,
     )
 
+    # 续跑请求携带客户端工具结果；补齐 ToolMessage 并记录已完成 ID，再让模型接着回答。
     if is_resume:
         turn = prepare_resume_turn(
             lc_messages,
@@ -571,6 +604,7 @@ def build_engine_agent(
             update={"workspace_root": _workspace_root(client_ctx)}
         )
 
+    # 把驱动层需要的材料集中返回，避免 SSE 层重复拼装或重新判断业务规则。
     resolved = {
         "messages": messages,
         "context": context,
@@ -580,6 +614,7 @@ def build_engine_agent(
     return agent, llm, resolved
 
 
+# 从可选的客户端上下文中取工作区根目录；缺失或空白时返回 None。
 def _workspace_root(client_ctx: ClientContextInput | None) -> str | None:
     if not client_ctx:
         return None
@@ -590,6 +625,7 @@ def _workspace_root(client_ctx: ClientContextInput | None) -> str | None:
 # ── 候选引擎的 SSE 生成器 ──────────────────────────────────────────────
 
 
+# 把装配得到的消息、上下文和模型交给 SSE 适配器，逐个产出业务事件对象。
 async def _stream_candidate_frames(
     agent: Any,
     resolved: Mapping[str, Any],
@@ -614,6 +650,8 @@ async def _stream_candidate_frames(
         yield frame
 
 
+# 默认工具型 Agent 的流式业务入口：准备 → 装配 → 驱动图 → 输出 SSE → 清理取消状态。
+# async for 会逐帧取结果；yield 把当前帧交给上层 HTTP 响应，不必等整轮任务全部完成。
 async def stream_candidate_engine_sse(
     body: LocalChatStreamRequest,
     settings: Any,
@@ -641,14 +679,17 @@ async def stream_candidate_engine_sse(
         _get_or_create_cancel_event,
     )
 
+    # client_job_id 标识这次可取消任务；它不是模型生成的 tool_call_id。
     client_job_id: str = body.client_job_id
     cancelled = is_cancelled
     if cancelled is None:
         cancel_event = _get_or_create_cancel_event(client_job_id)
 
+        # 闭包读取本次任务的取消事件；闭包表示内部函数可以继续访问外层的 cancel_event。
         async def cancelled() -> bool:  # type: ignore[misc]
             return cancel_event.is_set()
 
+    # 统一等待取消检查函数的结果，供当前流和子代理共用。
     async def _is_cancelled() -> bool:
         return bool(await cancelled())
 
@@ -680,6 +721,7 @@ async def stream_candidate_engine_sse(
 
         llm, aux_llm = build_llm_pair(body)
         tools = await merge_mcp_tools(body, settings, build_local_tools(body, settings))
+        # 有客户端回传的工具结果时进入续跑；没有结果则按普通首轮处理。
         is_resume = bool(body.client_tool_results)
 
         plan = build_agent_run_plan(
@@ -692,6 +734,7 @@ async def stream_candidate_engine_sse(
         if on_plan is not None:
             on_plan(plan)
 
+        # 默认使用真实业务工厂；可注入替代工厂是为了离线测试装配过程。
         builder = agent_builder or build_engine_agent
         built = builder(
             llm=llm,
@@ -723,12 +766,14 @@ async def stream_candidate_engine_sse(
         _cleanup_cancel_event(client_job_id)
 
 
+# 普通聊天分支复用默认聊天提示词；此分支不需要工具执行图。
 def _chat_system_prompt() -> str:
     from app.agent.context_service import CHAT_SYSTEM_PROMPT
 
     return CHAT_SYSTEM_PROMPT
 
 
+# 尽力关闭异步生成器，让内部 finally 清理任务和连接；关闭流不等于撤销已执行的操作。
 async def _aclose(agen: Any) -> None:
     """尽力关闭一个 async generator（不存在 ``aclose`` 时静默跳过）。
 
@@ -745,6 +790,7 @@ async def _aclose(agen: Any) -> None:
         logger.debug("candidate engine: abandoned stream already finished", exc_info=True)
 
 
+# 根据服务端 Settings.agent_engine 选择默认 candidate 或兼容 legacy 路径。
 async def stream_engine_sse(
     body: LocalChatStreamRequest,
     settings: Any,

@@ -1,3 +1,4 @@
+# 学习导航：视觉处理的两条补充路径：模型未主动读图时的首轮回退，以及读图工具完成后的多模态消息注入。
 """阶段 5：视觉 middleware —— 兜底的「首轮无 tool call 加载附图」+ 主动调用的附图。
 
 对应 ``docs/阶段5-MCP与子代理与视觉设计备忘.md`` §3,§5 与实施清单第 5/6 项。
@@ -162,6 +163,7 @@ VISION_FALLBACK_IMAGE_TEXT = "【附图】请根据上图回答用户关于该�
 """逐字复刻 ``app/agent/assist_vision.py:99``（``stream_vision_tool_execution`` 内使用）。"""
 
 
+# 记录本次运行是否已尝试自动读图，避免每轮都重复加载同一张图。
 class VisionFallbackState(AgentState):
     """视觉兜底的 state 扩展（与 ``BusinessRoundState`` **无键冲突**，可共存）。
 
@@ -173,6 +175,7 @@ class VisionFallbackState(AgentState):
     vision_attempted: NotRequired[bool]
 
 
+# 把视觉处理的项目事件转换成 custom 流字典，忽略没有值的字段。
 def vision_event_payload(event: Any) -> dict[str, Any] | None:
     """``StreamEventPayload`` → custom 帧 dict（``None`` 字段不出现，同 ``to_sse_dict``）。"""
     etype = getattr(event, "type", None)
@@ -194,6 +197,7 @@ def vision_event_payload(event: Any) -> dict[str, Any] | None:
     return payload
 
 
+# 复用读图执行器，收集过程事件、补充消息与展示文本，供中间件统一提交。
 async def _collect_vision_execution(
     *,
     tool_id: str,
@@ -240,6 +244,7 @@ async def _collect_vision_execution(
     return events, collected, display
 
 
+# 给同步钩子提供运行异步读图逻辑的桥接；异步图执行直接 await 对应实现。
 def _drive_sync(coro: Any) -> Any:
     """在**同步** ``after_model`` 里驱动 async 协程。
 
@@ -259,6 +264,7 @@ def _drive_sync(coro: Any) -> Any:
             new_loop.close()
 
 
+# 在满足视觉条件且首轮没有工具调用时，尝试自动读取当前图片后再让模型回答。
 class VisionFallbackMiddleware(AgentMiddleware):
     """复刻旧「首轮无 tool call → 自动加载附图」的 ``after_model`` 兜底。
 
@@ -274,6 +280,7 @@ class VisionFallbackMiddleware(AgentMiddleware):
 
     state_schema = VisionFallbackState
 
+    # 保存读图函数、模型视觉能力和本次请求背景，不在构造时读取图片。
     def __init__(
         self,
         *,
@@ -298,6 +305,7 @@ class VisionFallbackMiddleware(AgentMiddleware):
         self._is_resume = bool(is_resume)
 
     # ── 触发条件（= 旧 ``assist_service.py:158-167`` + ``vision_bootstrap.py:42-57``）──
+    # 综合读图能力、模型能力、是否续跑及用户图片意图，判断是否允许尝试回退。
     def should_load(self) -> bool:
         """``vision_fn`` 存在、provider 支持视觉、非 resume、且 user_content 命中图片正则。
 
@@ -306,6 +314,7 @@ class VisionFallbackMiddleware(AgentMiddleware):
         """
         return bool(self._loader.should_load(self._is_resume))
 
+    # 优先从当前上下文或用户文字解析待查看图片的相对路径。
     def resolve_relative_path(self) -> str:
         """解析候选相对路径（``vision_bootstrap.py:52-54``）。"""
         rel = pick_vision_relative_path(self._client_context)
@@ -313,6 +322,7 @@ class VisionFallbackMiddleware(AgentMiddleware):
             rel = vision_relative_from_user_text(self._user_content)
         return rel
 
+    # 校验候选图片路径可访问且存在，不满足条件时返回空字符串。
     def resolve_vision_path(self) -> str:
         """解析并校验为存在的图片（``assist_vision.py:50-57``）；不合格返回空串。"""
         rel = self.resolve_relative_path()
@@ -321,15 +331,18 @@ class VisionFallbackMiddleware(AgentMiddleware):
         return rel
 
     # ── hook：after_model（同步 + async 两版，逻辑同一份）────────────────
+    # 同步图的模型后置钩子，转到共享计算逻辑。
     def after_model(self, state: Any, runtime: Any) -> dict[str, Any] | None:
         """同步版（``invoke`` / 同步图执行走这条）。"""
         return _drive_sync(self._compute(state, runtime))
 
+    # 异步图的模型后置钩子；astream 会使用此入口。
     async def aafter_model(self, state: Any, runtime: Any) -> dict[str, Any] | None:
         """异步版（``astream`` 走这条；与同步版共用 :meth:`_compute`）。"""
         return await self._compute(state, runtime)
 
     # ── 核心：轮次守卫 + 触发 + 注入 ────────────────────────────────
+    # 只在合适的首轮补充读图调用、配对结果和图片消息，并写出视觉进度事件。
     async def _compute(self, state: Any, runtime: Any) -> dict[str, Any] | None:
         """第一轮无 tool call 时注入「合成 AI 伪调用 + 匹配 ToolMessage」。
 
@@ -416,6 +429,7 @@ class VisionFallbackMiddleware(AgentMiddleware):
         return update
 
 
+# 拦截已完成的读图工具结果，把本地图片转成模型能接收的多模态消息。
 class VisionToolResultMiddleware(AgentMiddleware):
     """复刻旧「模型**主动**调用 ``read_image_for_vision`` → 工具结果之后追加附图」。
 
@@ -456,11 +470,13 @@ class VisionToolResultMiddleware(AgentMiddleware):
     兜底帧）。
     """
 
+    # 保存视觉开关和图片压缩配置，供工具结果转换时使用。
     def __init__(self, *, provider_is_vision: bool, settings: Any) -> None:
         super().__init__()
         self._provider_is_vision = bool(provider_is_vision)
         self._settings = settings
 
+    # 加载并压缩图片，构造带图片块的 HumanMessage；模型接收图片数据而非本地路径。
     async def _image_message(self, vision_path: str) -> HumanMessage:
         """与旧路径逐字同参（``tool_loop.py:340-347``）。"""
         return await build_multimodal_user_message(
@@ -470,20 +486,24 @@ class VisionToolResultMiddleware(AgentMiddleware):
             jpeg_quality=self._settings.agent_chat_vision_jpeg_quality,
         )
 
+    # 仅对有效读图工具结果提取内部图片路径，其他工具返回空路径。
     def _vision_path_of(self, request: Any, result: Any) -> str:
         if not self._provider_is_vision or not isinstance(result, ToolMessage):
             return ""
         name = str(getattr(request, "tool_call", {}).get("name") or "")
         return extract_vision_path_from_tool_result(name, str(result.content)) or ""
 
+    # 同步工具包装入口：执行工具后按需补上图片消息。
     def wrap_tool_call(self, request: Any, handler: Any) -> Any:
         """同步版（``invoke`` / 同步图执行走这条）。"""
         return _drive_sync(self._awrap(request, handler, sync_handler=handler))
 
+    # 异步工具包装入口：等待工具完成，再补上对应图片消息。
     async def awrap_tool_call(self, request: Any, handler: Any) -> Any:
         """异步版（``astream`` 走这条）。"""
         return await self._awrap(request, handler, sync_handler=None)
 
+    # 共用的异步结果处理逻辑，保留工具返回值并在需要时追加多模态内容。
     async def _awrap(self, request: Any, handler: Any, *, sync_handler: Any) -> Any:
         if sync_handler is None:
             result = await handler(request)

@@ -1,3 +1,4 @@
+# 学习导航：给模型提供目录查看、通配符查文件和正则查正文三种只读能力，并限制扫描量和输出量。
 """工作区代码/文本搜索与目录列表（grep、list_dir）。"""
 
 from __future__ import annotations
@@ -33,11 +34,13 @@ SKIP_DIR_NAMES = frozenset(
 )
 
 
+# 按明确排除名单跳过依赖、版本库等目录；不是所有点号开头的目录都跳过。
 def _should_skip_dir(name: str) -> bool:
     """只跳过显式名单（.git / node_modules 等）；.github、.cursor 等点目录仍参与搜索。"""
     return name in SKIP_DIR_NAMES
 
 
+# 对相对路径应用通配符规则，兼容根目录和多级目录匹配。
 def _rel_matches_glob(relative_path: str, glob_pattern: str) -> bool:
     rel = relative_path.replace("\\", "/")
     pat = (glob_pattern or "*").strip().replace("\\", "/")
@@ -54,6 +57,7 @@ def _rel_matches_glob(relative_path: str, glob_pattern: str) -> bool:
     return fnmatch.fnmatch(rel, pat) or fnmatch.fnmatch(name, pat)
 
 
+# 判断文件名称是否匹配通配符，供遍历过滤使用。
 def _matches_glob(name: str, glob_pattern: str) -> bool:
     pattern = (glob_pattern or "*").strip()
     if pattern == "*":
@@ -63,6 +67,7 @@ def _matches_glob(name: str, glob_pattern: str) -> bool:
     return fnmatch.fnmatch(name, pattern) or fnmatch.fnmatch(name, f"*{pattern}")
 
 
+# 依据后缀等条件判断文件是否适合按文本搜索，避免读取图片等二进制文件。
 def _is_searchable_file(path: Path) -> bool:
     if not path.is_file():
         return False
@@ -71,6 +76,7 @@ def _is_searchable_file(path: Path) -> bool:
     return True
 
 
+# 递归遍历候选文件并跳过排除目录，到达文件数量上限后停止。
 def _iter_search_files(
     search_root: Path,
     *,
@@ -102,6 +108,7 @@ def _iter_search_files(
     return files
 
 
+# 逐行应用已编译的正则，把命中行追加到结果；返回是否达到结果上限。
 def _grep_single_file(
     file_path: Path,
     regex: re.Pattern[str],
@@ -136,6 +143,7 @@ def _grep_single_file(
     return False
 
 
+# 先校验搜索目录和正则，再逐文件找匹配，输出路径、行号和命中内容。
 def grep_workspace(
     client_context: ClientContextInput | None,
     pattern: str,
@@ -153,6 +161,7 @@ def grep_workspace(
 
     try:
         flags = re.IGNORECASE if case_insensitive else 0
+        # 先编译正则；语法无效时给出明确反馈，避免扫描许多文件后才报错。
         regex = re.compile(needle, flags)
     except re.error as exc:
         return f"无效的正则表达式：{exc}"
@@ -161,11 +170,13 @@ def grep_workspace(
     if not roots:
         return "未绑定工作区或项目目录，无法搜索。"
 
+    # 调用方可以请求更少结果，但下面仍把它限制在服务配置允许的最大数量内。
     limit = max_results if max_results is not None else settings.agent_grep_max_results
     limit = min(max(limit, 1), settings.agent_grep_max_results)
     max_files = settings.agent_grep_max_files_scanned
 
     raw_path = (path or "").strip()
+    # 先决定搜索单个文件、指定目录还是整个工作区，再统一执行逐文件扫描。
     files_to_search: list[Path] = []
 
     if raw_path:
@@ -226,6 +237,7 @@ def grep_workspace(
     return header + "\n".join(results)
 
 
+# 按 glob 模式列出相对文件路径，适合先定位文件名再决定读哪份代码。
 def glob_workspace(
     client_context: ClientContextInput | None,
     glob_pattern: str,
@@ -284,6 +296,7 @@ def glob_workspace(
     return header + "\n".join(lines)
 
 
+# 只列一层文件与子目录，限制条目数，帮助模型逐层探索项目。
 def list_workspace_directory(
     client_context: ClientContextInput | None,
     relative_dir: str = "",

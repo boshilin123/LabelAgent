@@ -1,3 +1,4 @@
+# 学习导航：按模式选择工具名称集合。工具“对模型可见”在这里决定，工具如何执行在 registry 和运行时决定。
 """Assist 模式路由器：基于客户端上下文决定运行模式与工具集。
 
 三种模式:
@@ -61,6 +62,8 @@ WRITE_TOOL_NAMES: frozenset[str] = frozenset(
 ASK_TOOL_SET: frozenset[str] = FULL_TOOL_SET - WRITE_TOOL_NAMES
 
 
+# 聊天/缺失模式按只读范围处理；标注模式且有项目快照、非编辑器时才提供完整标注工具集。
+# 编辑器或普通工作区使用较轻的工具集，其中写文件仍走提案流程。
 def resolve_assist_tool_set(
     *,
     has_project_snapshot: bool,

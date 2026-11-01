@@ -7,7 +7,7 @@
     "jsx": "react-jsx",
     "strict": true,
     "sourceMap": true,
-    "moduleResolution": "node",
+    "resolvePackageJsonExports": false,
     "skipLibCheck": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,

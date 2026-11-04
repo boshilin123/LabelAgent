@@ -8,6 +8,8 @@ describe('heuristicContextWindow', () => {
   it('matches the longest prefix for generational families', () => {
     // V4 单列 1M，不落到 deepseek 家族的 128K
     expect(heuristicContextWindow('deepseek-v4-flash-0731')).toBe(1_000_000);
+    expect(heuristicContextWindow('deepseek-flash')).toBe(1_000_000);
+    expect(heuristicContextWindow('deepseek/deepseek-flash')).toBe(1_000_000);
     expect(heuristicContextWindow('deepseek-chat')).toBe(128_000);
     // Qwen 新代 1M，老代 128K
     expect(heuristicContextWindow('qwen3.8-max')).toBe(1_000_000);
@@ -29,6 +31,17 @@ describe('heuristicContextWindow', () => {
 });
 
 describe('interpretModelsResponse', () => {
+  it('uses the actual DeepSeek window ahead of the name fallback', () => {
+    const body = JSON.stringify({
+      data: [{ id: 'deepseek-flash', context_window: 1_048_576 }],
+    });
+    expect(interpretModelsResponse(200, body, 'deepseek-flash')).toEqual({
+      contextWindowTokens: 1_048_576,
+      source: 'probe',
+      detail: 'probe_ok',
+    });
+  });
+
   it('reads context_length from a matched /models entry (probe source)', () => {
     const body = JSON.stringify({
       data: [

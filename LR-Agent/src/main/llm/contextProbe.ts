@@ -22,6 +22,8 @@ export const MODEL_CONTEXT_WINDOW_TABLE: ReadonlyArray<
   readonly [prefix: string, tokens: number]
 > = [
   // DeepSeek：V4 系列原生 1M；V3.x 为 128K
+  // 官方当前使用 deepseek-flash 别名；不能落入旧 deepseek 家族的 128K 兜底。
+  ['deepseek-flash', 1_000_000],
   ['deepseek-v4', 1_000_000],
   ['deepseek', 128_000],
   // Qwen：3.5/3.8 代百炼 API 为 1M（开源版 262K，YaRN 可扩 1M）；3.x 及更早 128K
@@ -117,7 +119,7 @@ export function matchModelsEntry(
 
 /** 按模型名前缀查保守对照表；前缀取最长匹配 */
 export function heuristicContextWindow(model: string): number | null {
-  const target = normalizeModelId(model);
+  const target = normalizeModelId(model).split('/').pop() ?? '';
   if (!target) return null;
   let best: { prefix: string; tokens: number } | null = null;
   for (const [prefix, tokens] of MODEL_CONTEXT_WINDOW_TABLE) {

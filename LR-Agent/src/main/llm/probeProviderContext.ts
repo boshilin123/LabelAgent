@@ -30,6 +30,7 @@ export async function probeAndPersistProviderContext(id: string) {
   const latest = providerRepo.getProvider(id);
   if (
     !latest ||
+    latest.context_window_source === 'manual' ||
     latest.model !== row.model ||
     latest.base_url !== row.base_url
   ) {

@@ -117,6 +117,8 @@ import type { PretrainedModelConfig } from '../types/pretrainedModel';
 import { usePretrainedModels } from './PretrainedModelsContext';
 import { shouldClearSummaryOnEdit } from '../services/chatContextUtils';
 import { prepareChatContext } from '../services/contextPreparer';
+import { loadContextHistory } from '../services/chatContextHistory';
+import { ensureLlmProviderContext } from '../services/llmProviderService';
 import { summarizeConversation } from '../services/contextSummarizer';
 import { loadProjectInstructions } from '../services/projectInstructions';
 import {
@@ -259,7 +261,8 @@ function normalizeLoadedState(
 }
 
 export function AgentChatProvider({ children }: { children: ReactNode }) {
-  const { providers, defaultProvider, auxiliaryProvider } = useLlmProviders();
+  const { providers, defaultProvider, auxiliaryProvider, refreshProviders } =
+    useLlmProviders();
   const { showToast } = useToast();
   const { user, status: authStatus } = useAuth();
   const currentUserId = user?.id ?? '';
@@ -1526,7 +1529,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      const selectedProvider = resolveProvider(session.providerId);
+      let selectedProvider = resolveProvider(session.providerId);
       if (!selectedProvider) return;
 
       const editMessageId =
@@ -1776,7 +1779,6 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
       // 消息已进入内存态，输入框立即清空，不必等 IPC 落库
       setComposerDraft('');
 
-      attachJobListener(jobId, sessionId, assistantMessageId);
       setPreparingContext(true);
       // 异步获取本地 MCP Server URL + 用户启用的远程 MCP（Electron 环境下可用）
       const mcpBridge = (
@@ -1848,10 +1850,37 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
 
       // Turn understanding removed — now handled locally or skipped
 
-      // ── 上下文准备：窗口裁剪 + 自动摘要（失败降级为纯裁剪，不阻塞发送） ──
+      // 先读取模型真实窗口并补齐未摘要历史；摘要成功后才能移出原文。
       let sessionForJob: AgentSession = nextSession;
       let messageIdsForJob = messageIds;
       try {
+        const previousWindow = selectedProvider.contextWindowTokens;
+        const previousSource = selectedProvider.contextWindowSource;
+        selectedProvider = await ensureLlmProviderContext(selectedProvider);
+        if (
+          selectedProvider.contextWindowTokens !== previousWindow ||
+          selectedProvider.contextWindowSource !== previousSource
+        ) {
+          refreshProviders().catch(() => undefined);
+        }
+        const contextMessages = await loadContextHistory({
+          messageIds,
+          messages: sessionMessages,
+          summaryUpToMessageId: nextSession.summaryUpToMessageId,
+          loadPage: async (beforeMessageId) => {
+            const page = await fetchAgentSessionDetail(
+              currentUserIdRef.current,
+              sessionId,
+              { beforeMessageId, limit: 200 },
+            );
+            return {
+              messages: normalizeHistoricalMessages(page.messages),
+              hasMoreBefore: page.hasMoreBefore,
+            };
+          },
+        });
+        Object.assign(sessionMessages, contextMessages);
+        const requestProvider = selectedProvider;
         const prepared = await prepareChatContext({
           session: nextSession,
           messageIds,
@@ -1866,22 +1895,22 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
           modelContextWindowTokens: selectedProvider.contextWindowTokens,
           // 摘要真正触发时更新空窗提示（仅此时 summarizeFn 才会被调用）；
           // 配置了辅助模型时摘要走辅助模型凭据，否则跟随会话模型
-          summarizeFn: (summarizeOptions) => {
+          summarizeFn: async (summarizeOptions) => {
             updateMessage(sessionId, assistantMessageId, (message) => ({
               ...message,
               streamPhase: 'summarizing',
               updatedAt: Date.now(),
             }));
-            return summarizeConversation(
-              auxiliaryProvider
-                ? {
-                    ...summarizeOptions,
-                    baseUrl: auxiliaryProvider.baseUrl,
-                    apiKey: auxiliaryProvider.apiKey,
-                    model: auxiliaryProvider.model,
-                  }
-                : summarizeOptions,
-            );
+            const summaryProvider = auxiliaryProvider
+              ? await ensureLlmProviderContext(auxiliaryProvider)
+              : requestProvider;
+            return summarizeConversation({
+              ...summarizeOptions,
+              baseUrl: summaryProvider.baseUrl,
+              apiKey: summaryProvider.apiKey,
+              model: summaryProvider.model,
+              contextWindowTokens: summaryProvider.contextWindowTokens,
+            });
           },
         });
         messageIdsForJob = prepared.windowedMessageIds;
@@ -1923,7 +1952,29 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
           };
         }
       } catch (err) {
-        console.warn('[AgentChat] 上下文准备失败，使用全量消息:', err);
+        // 不再忽略准备错误后发送超预算输入，也不丢掉未摘要的历史。
+        const error = resolveErrorMessage(err, '会话上下文准备失败，请重试');
+        updateMessage(sessionId, assistantMessageId, (message) => ({
+          ...message,
+          status: 'error',
+          error,
+          updatedAt: Date.now(),
+          finishedAt: message.finishedAt ?? Date.now(),
+        }));
+        const latest = stateRef.current;
+        const latestSession = latest.sessions[sessionId];
+        if (latestSession) {
+          persist({
+            ...latest,
+            sessions: {
+              ...latest.sessions,
+              [sessionId]: { ...latestSession, activeJobId: undefined },
+            },
+          });
+        }
+        setPreparingContext(false);
+        showToast(error, { type: 'error' });
+        return;
       }
 
       // 构建客户端工具上下文（有标注项目时传入，供 Agent 调用客户端工具使用）
@@ -1974,6 +2025,8 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
       }
 
       try {
+        // 准备成功后再监听，避免摘要失败留下尚未启动任务的监听器。
+        attachJobListener(jobId, sessionId, assistantMessageId);
         // 请求即将发出：进入等待模型阶段（后端 preparing 事件会再次确认该状态）
         updateMessage(sessionId, assistantMessageId, (message) => ({
           ...message,
@@ -2059,6 +2112,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
       finalizeAwaitingConfirmationMessages,
       persist,
       resolveProvider,
+      refreshProviders,
       rootPath,
       showToast,
       updateMessage,

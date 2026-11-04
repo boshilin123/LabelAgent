@@ -1,4 +1,9 @@
-import { prepareChatContext, estimateTokens } from './contextPreparer';
+import {
+  prepareChatContext,
+  estimateTokens,
+  deriveMaxContextTokens,
+} from './contextPreparer';
+import { buildBackendMessages } from './backendChatClient';
 import type {
   AgentSession,
   ChatContextConfig,
@@ -65,7 +70,8 @@ function makeTurns(
 const provider = { baseUrl: 'http://test', apiKey: 'k', model: 'm' };
 
 const smallConfig: ChatContextConfig = {
-  maxContextTokens: 200,
+  windowStrategy: 'turns',
+  maxContextTokens: 400,
   maxTurnsInWindow: 4,
   summarizeTriggerRatio: 0.5,
   minTurnsBeforeSummarize: 2,
@@ -95,23 +101,23 @@ describe('prepareChatContext', () => {
     expect(summarizeFn).not.toHaveBeenCalled();
   });
 
-  it('applies hard turn window even without summarize', async () => {
+  it('summarizes short history before a configured turn window evicts it', async () => {
     const { ids, messages } = makeTurns(10, 5);
-    const summarizeFn = jest.fn();
+    const summarizeFn = jest.fn().mockResolvedValue('完整覆盖旧消息的摘要');
     const result = await prepareChatContext({
       session: makeSession({ messageIds: ids }),
       messageIds: ids,
       sessionMessages: messages,
       currentUserContent: 'hello',
       provider,
-      // token 阈值极高 → 不触发摘要，仅硬窗口
+      // 即使 token 未达阈值，也不能静默丢掉即将移出窗口的内容。
       config: { ...smallConfig, maxContextTokens: 1_000_000 },
       summarizeFn,
     });
-    expect(result.summarized).toBe(false);
-    // maxTurnsInWindow=4 → 保留最后 8 条内容消息
-    expect(result.windowedMessageIds).toEqual(ids.slice(-8));
-    expect(summarizeFn).not.toHaveBeenCalled();
+    expect(result.summarized).toBe(true);
+    expect(result.windowedMessageIds).toEqual(ids.slice(-4));
+    expect(result.summaryUpToMessageId).toBe('a7');
+    expect(summarizeFn).toHaveBeenCalledTimes(1);
   });
 
   it('summarizes evicted turns when over threshold', async () => {
@@ -162,7 +168,7 @@ describe('prepareChatContext', () => {
     expect(call.evictedTranscript).not.toContain('q0');
   });
 
-  it('falls back to hard window when summarize fails', async () => {
+  it('preserves all original messages when a turn-triggered summary fails within budget', async () => {
     const { ids, messages } = makeTurns(10, 100);
     const summarizeFn = jest.fn().mockRejectedValue(new Error('llm down'));
     const result = await prepareChatContext({
@@ -171,13 +177,13 @@ describe('prepareChatContext', () => {
       sessionMessages: messages,
       currentUserContent: 'hello',
       provider,
-      config: smallConfig,
+      config: { ...smallConfig, maxContextTokens: 1_000_000 },
       summarizeFn,
     });
     expect(result.summarized).toBe(false);
     expect(result.contextSummary).toBeUndefined();
-    // 降级为硬窗口：maxTurnsInWindow=4 → 最后 8 条
-    expect(result.windowedMessageIds).toEqual(ids.slice(-8));
+    expect(result.windowedMessageIds).toEqual(ids);
+    expect(result.summaryUpToMessageId).toBeUndefined();
   });
 
   it('excludes messages in excludeMessageIds from lines', async () => {
@@ -210,10 +216,178 @@ describe('prepareChatContext', () => {
       sessionMessages: messages,
       currentUserContent: 'hello',
       provider,
-      config: { ...smallConfig, minTurnsBeforeSummarize: 2 },
+      config: {
+        ...smallConfig,
+        maxContextTokens: 6000,
+        summarizeTriggerRatio: 0.1,
+        minTurnsBeforeSummarize: 2,
+      },
       summarizeFn,
     });
     expect(result.summarized).toBe(false);
     expect(summarizeFn).not.toHaveBeenCalled();
+  });
+});
+
+describe('model-sized context protection', () => {
+  it('uses 80% without the former 8K floor or 48K ceiling', () => {
+    expect(deriveMaxContextTokens(1_000_000)).toBe(800_000);
+    expect(deriveMaxContextTokens(1_048_576)).toBe(838_860);
+    expect(deriveMaxContextTokens(128_000)).toBe(102_400);
+    expect(deriveMaxContextTokens(4096)).toBe(3276);
+    for (const value of [null, undefined, NaN, Infinity, -1, 0, 1.5]) {
+      expect(deriveMaxContextTokens(value)).toBeNull();
+    }
+  });
+
+  it('keeps more than 20 short turns when the model budget has space', async () => {
+    const { ids, messages } = makeTurns(30, 20);
+    const summarizeFn = jest.fn();
+    const result = await prepareChatContext({
+      session: makeSession(),
+      messageIds: ids,
+      sessionMessages: messages,
+      currentUserContent: 'continue',
+      provider,
+      modelContextWindowTokens: 1_000_000,
+      summarizeFn,
+    });
+    expect(result.windowedMessageIds).toEqual(ids);
+    expect(result.summarized).toBe(false);
+    expect(summarizeFn).not.toHaveBeenCalled();
+  });
+
+  it('moves the summary boundary to a complete user turn', async () => {
+    const { ids, messages } = makeTurns(20, 10);
+    ids.push('u20');
+    messages.u20 = makeMessage('u20', 'user', 'the next question');
+    const summarizeFn = jest.fn().mockResolvedValue('summary');
+    const result = await prepareChatContext({
+      session: makeSession(),
+      messageIds: ids,
+      sessionMessages: messages,
+      currentUserContent: 'the next question',
+      provider,
+      config: {
+        ...smallConfig,
+        maxTurnsInWindow: 20,
+        maxContextTokens: 100_000,
+      },
+      summarizeFn,
+    });
+    expect(result.summaryUpToMessageId).toBe('a10');
+    expect(result.windowedMessageIds[0]).toBe('u11');
+    expect(summarizeFn.mock.calls[0][0].evictedTranscript).toContain('r10');
+    expect(summarizeFn.mock.calls[0][0].evictedTranscript).not.toContain('q11');
+  });
+
+  it('rejects an over-budget request when summary generation fails without mutating history', async () => {
+    const { ids, messages } = makeTurns(10, 100);
+    const session = makeSession({
+      contextSummary: 'old',
+      summaryUpToMessageId: 'a0',
+    });
+    await expect(
+      prepareChatContext({
+        session,
+        messageIds: ids,
+        sessionMessages: messages,
+        currentUserContent: 'continue',
+        provider,
+        config: smallConfig,
+        summarizeFn: jest.fn().mockRejectedValue(new Error('offline')),
+      }),
+    ).rejects.toThrow('历史消息已保留');
+    expect(session.contextSummary).toBe('old');
+    expect(session.summaryUpToMessageId).toBe('a0');
+    expect(ids).toHaveLength(20);
+  });
+
+  it('does not silently skip history that has not been loaded', async () => {
+    const message = makeMessage('u1', 'user', 'hello');
+    await expect(
+      prepareChatContext({
+        session: makeSession(),
+        messageIds: ['old', 'u1'],
+        sessionMessages: { u1: message },
+        currentUserContent: 'hello',
+        provider,
+      }),
+    ).rejects.toThrow('历史消息尚未加载');
+  });
+
+  it('preserves history when an empty summary is returned', async () => {
+    const { ids, messages } = makeTurns(10, 5);
+    const result = await prepareChatContext({
+      session: makeSession(),
+      messageIds: ids,
+      sessionMessages: messages,
+      currentUserContent: 'continue',
+      provider,
+      config: { ...smallConfig, maxContextTokens: 100_000 },
+      summarizeFn: jest.fn().mockResolvedValue('   '),
+    });
+    expect(result.windowedMessageIds).toEqual(ids);
+    expect(result.summarized).toBe(false);
+  });
+
+  it('reports an oversized latest turn instead of dropping it', async () => {
+    const { ids, messages } = makeTurns(1, 10_000);
+    await expect(
+      prepareChatContext({
+        session: makeSession(),
+        messageIds: ids,
+        sessionMessages: messages,
+        currentUserContent: 'continue',
+        provider,
+        config: smallConfig,
+      }),
+    ).rejects.toThrow('请缩短输入');
+  });
+
+  it('counts multilingual text conservatively', () => {
+    expect(estimateTokens('abcdef')).toBe(2);
+    expect(estimateTokens('中文测试')).toBe(4);
+    expect(estimateTokens('😀')).toBe(2);
+  });
+
+  it('keeps assistant tool calls and their results together after compaction', async () => {
+    const { ids, messages } = makeTurns(10, 10);
+    messages.a9.blocks.push({
+      type: 'tool_call',
+      id: 'call-last',
+      name: 'write_workspace_file',
+      arguments: '{"relative_path":"notes.md"}',
+      status: 'done',
+      collapsed: true,
+      result: '{"status":"ok","summary":"proposal prepared"}',
+    });
+    messages.a0.blocks.push({
+      type: 'tool_call',
+      id: 'call-old',
+      name: 'write_workspace_file',
+      arguments: '{"relative_path":"old.md"}',
+      status: 'done',
+      collapsed: true,
+      result: '{"status":"ok","summary":"old proposal"}',
+    });
+    const summarizeFn = jest.fn().mockResolvedValue('summary');
+    const result = await prepareChatContext({
+      session: makeSession(),
+      messageIds: ids,
+      sessionMessages: messages,
+      currentUserContent: 'continue',
+      provider,
+      config: { ...smallConfig, maxContextTokens: 100_000 },
+      summarizeFn,
+    });
+    const payload = buildBackendMessages(result.windowedMessageIds, messages);
+    const declarations = payload.flatMap((item) => item.tool_calls ?? []);
+    const results = payload.filter((item) => item.role === 'tool');
+    expect(declarations.map((item) => item.id)).toEqual(['call-last']);
+    expect(results.map((item) => item.tool_call_id)).toEqual(['call-last']);
+    expect(summarizeFn.mock.calls[0][0].evictedTranscript).toContain(
+      'call-old',
+    );
   });
 });

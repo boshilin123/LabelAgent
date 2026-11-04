@@ -75,5 +75,12 @@ New-Item -ItemType Directory -Path $env:YOLO_CONFIG_DIR -Force | Out-Null
 New-Item -ItemType Directory -Path $env:MPLCONFIGDIR -Force | Out-Null
 
 Set-Location $frontend
+# Agent/editor hosts may inherit this flag. Electron must start in desktop mode.
+# This changes only the launch process environment, not the user's system settings.
+Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue
+# The Python service expects a boolean DEBUG; some agent hosts inject 'release'.
+if ($env:DEBUG -and $env:DEBUG -notmatch '^(true|false|1|0|yes|no|on|off|y|n|t|f)$') {
+    $env:DEBUG = 'false'
+}
 Write-Host 'Starting LR-Agent. Keep this window open; press Ctrl+C to stop the desktop app.'
 npm.cmd run dev

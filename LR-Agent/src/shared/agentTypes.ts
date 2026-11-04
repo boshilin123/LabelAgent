@@ -202,18 +202,22 @@ export interface ChatMessage {
 }
 
 export interface ChatContextConfig {
+  /** 默认按 token 保留原文；turns 仅供显式轮数策略使用。 */
+  windowStrategy?: 'tokens' | 'turns';
   maxContextTokens: number;
+  /** turns 策略的窗口；tokens 策略仅用于压缩后保留近期轮次的参考。 */
   maxTurnsInWindow: number;
   summarizeTriggerRatio: number;
   minTurnsBeforeSummarize: number;
 }
 
 export const DEFAULT_CHAT_CONTEXT_CONFIG: ChatContextConfig = {
+  windowStrategy: 'tokens',
   maxContextTokens: 12_000,
   maxTurnsInWindow: 20,
-  summarizeTriggerRatio: 0.85,
-  // 必须 ≥ 摘要时保留的轮数（ceil(maxTurnsInWindow/2) = 10），
-  // 否则触发条件可能通过但没有可驱逐的内容，摘要永远不会执行。
+  // maxContextTokens 已取模型窗口的 80%，达到该预算时再摘要。
+  summarizeTriggerRatio: 1,
+  // 软阈值的最小轮数；超预算或轮数窗口溢出时仍需及时摘要。
   minTurnsBeforeSummarize: 10,
 };
 

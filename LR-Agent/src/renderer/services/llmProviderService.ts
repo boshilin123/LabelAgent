@@ -3,12 +3,71 @@ import {
   createLlmProviderOnApi,
   deleteLlmProviderOnApi,
   fetchLlmProvidersFromApi,
+  probeLlmProviderContextOnApi,
   setDefaultLlmProviderOnApi,
   updateLlmProviderOnApi,
 } from './llmProviderApi';
 
 const DEFAULT_PROVIDER_KEY = 'lr-agent:defaultLlmProviderId';
 const AUX_PROVIDER_KEY = 'lr-agent:auxiliaryLlmProviderId';
+
+const CONTEXT_PROBE_CACHE_MS = 5 * 60_000;
+const contextProbes = new Map<
+  string,
+  {
+    model: string;
+    baseUrl: string;
+    startedAt: number;
+    result: Promise<LlmProviderConfig>;
+  }
+>();
+
+export function invalidateLlmProviderContext(id?: string): void {
+  if (id) contextProbes.delete(id);
+  else contextProbes.clear();
+}
+
+/** 发送前读取 /models 的真实窗口；手填值优先，探测失败保留现值，短时复用结果。 */
+export async function ensureLlmProviderContext(
+  provider: LlmProviderConfig,
+): Promise<LlmProviderConfig> {
+  if (!provider.enabled || provider.contextWindowSource === 'manual') {
+    return provider;
+  }
+  const cached = contextProbes.get(provider.id);
+  if (
+    cached &&
+    cached.model === provider.model &&
+    cached.baseUrl === provider.baseUrl &&
+    Date.now() - cached.startedAt < CONTEXT_PROBE_CACHE_MS &&
+    provider.updatedAt <= cached.startedAt
+  ) {
+    return cached.result;
+  }
+  const result = probeLlmProviderContextOnApi(provider.id)
+    .then((updated) => {
+      if (
+        updated.model !== provider.model ||
+        updated.baseUrl !== provider.baseUrl
+      ) {
+        return provider;
+      }
+      // 只更新窗口元数据；本轮的模型、凭据等继续使用发送时的快照。
+      return {
+        ...provider,
+        contextWindowTokens: updated.contextWindowTokens,
+        contextWindowSource: updated.contextWindowSource,
+      };
+    })
+    .catch(() => provider);
+  contextProbes.set(provider.id, {
+    model: provider.model,
+    baseUrl: provider.baseUrl,
+    startedAt: Date.now(),
+    result,
+  });
+  return result;
+}
 
 export function buildEmptyProvider(): LlmProviderConfig {
   const now = Date.now();
@@ -96,6 +155,7 @@ export async function upsertLlmProvider(
   const saved = isNew
     ? await createLlmProviderOnApi(provider)
     : await updateLlmProviderOnApi(provider);
+  invalidateLlmProviderContext(provider.id);
 
   if (saved.isDefault) {
     const updated = await setDefaultLlmProviderOnApi(saved.id);
@@ -106,6 +166,7 @@ export async function upsertLlmProvider(
 }
 
 export async function removeLlmProvider(id: string): Promise<void> {
+  invalidateLlmProviderContext(id);
   await deleteLlmProviderOnApi(id);
 }
 

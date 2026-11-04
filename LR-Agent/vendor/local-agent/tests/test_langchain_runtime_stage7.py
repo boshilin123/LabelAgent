@@ -7,11 +7,12 @@
    （``Settings.agent_engine`` / 环境变量 ``LR_AGENT_ENGINE``），前端不参与。
 2. **FastAPI 测试客户端**覆盖：请求校验（422）、MCP ``preparing`` 帧
    （配置 / 未配置 / loader 失败）、SSE 字节格式、取消、工具结果回传第二轮、
-   异常到 HTTP/SSE 的映射（**无** ``error`` 帧；``done`` 只在正常完成或取消时发）。
+   异常到 HTTP/SSE 的映射（**无** ``error`` 帧；内部钩子模拟早停仍发 ``done``）。
 3. **逐帧字节相等**：同一脚本化场景下，候选入口产出的 SSE 字符串列表与旧路径
    完全相等（复用阶段 4 的驱动方式：脚本化流式模型 + 存根工具 + 假 MCP loader）。
 
 全部离线、确定性：无网络、无真实模型、无真实工作区写入、无 Docker。
+真实请求断连的取消与资源清理由 ``test_chat_disconnect.py`` 单独验证。
 """
 
 from __future__ import annotations
@@ -165,13 +166,6 @@ def _candidate_settings() -> Settings:
 
 
 # ── 共享 patch 组 ──────────────────────────────────────────────────────
-
-
-@pytest.fixture(autouse=True)
-def _clean_cancel_registry():
-    agent_module._cancel_events.clear()
-    yield
-    agent_module._cancel_events.clear()
 
 
 @pytest.fixture
@@ -619,7 +613,8 @@ class TestCancellation:
     ):
         """取消检查在 yield 之前：已取出的帧也被丢弃（= 旧 HTTP 层语义）。"""
         job_id = "job-stage7-cancelled"
-        agent_module._cancel_events[job_id] = _set_event()
+        async def cancelled():
+            return True
 
         closed: list[bool] = []
 
@@ -631,7 +626,8 @@ class TestCancellation:
                 closed.append(True)
 
         out = await _collect_candidate(
-            _body(client_job_id=job_id), _candidate_settings(), frame_source=_frames
+            _body(client_job_id=job_id), _candidate_settings(),
+            frame_source=_frames, is_cancelled=cancelled,
         )
         assert out == ['data: {"type": "done"}\n\n']
         assert closed == [True]
@@ -641,14 +637,20 @@ class TestCancellation:
     ):
         job_id = "job-stage7-cancel-mid"
         seen: list[str] = []
+        stopped = False
+
+        async def cancelled():
+            return stopped
 
         async def _frames(agent, resolved, *, stream_modes):
+            nonlocal stopped
             yield StreamEventPayload(type="text_delta", content="第一帧")
-            agent_module._cancel_events[job_id].set()
+            stopped = True
             yield StreamEventPayload(type="text_delta", content="第二帧")
 
         out = await _collect_candidate(
-            _body(client_job_id=job_id), _candidate_settings(), frame_source=_frames
+            _body(client_job_id=job_id), _candidate_settings(),
+            frame_source=_frames, is_cancelled=cancelled,
         )
         seen = _events(out)
         assert seen == [
@@ -656,10 +658,10 @@ class TestCancellation:
             {"type": "done"},
         ]
 
-    async def test_http_cancel_endpoint_sets_the_same_registry(
+    async def test_cancel_endpoint_is_removed_and_chat_stream_still_works(
         self, monkeypatch, patch_model, patch_local_tools
     ):
-        """取消端点在后端注册表上生效（候选入口读同一份注册表）。"""
+        """停止统一走原请求中止；旧取消地址不再注册，正常聊天不受影响。"""
         job_id = "job-stage7-http-cancel"
         app = _build_app(_candidate_settings())
 
@@ -669,24 +671,19 @@ class TestCancellation:
 
         monkeypatch.setattr(entry, "_stream_candidate_frames", _frames)
         with TestClient(app) as client:
-            agent_module._cancel_events[job_id] = _set_event()
             resp = client.post(
                 CANCEL_ROUTE, json={"client_job_id": job_id}
             )
-            assert resp.json() == {"ok": True}
+            assert resp.status_code == 404
             with client.stream(
                 "POST", ROUTE, json=_body(client_job_id=job_id).model_dump()
             ) as streamed:
                 body_text = "".join(streamed.iter_text())
-        assert _events([body_text]) == [{"type": "done"}]
-
-
-def _set_event():
-    import asyncio
-
-    event = asyncio.Event()
-    event.set()
-    return event
+        assert _events([body_text]) == [
+            {"type": "preparing", "stage": "streaming"},
+            {"type": "text_delta", "content": "正文"},
+            {"type": "done"},
+        ]
 
 
 # ── 6. 工具结果回传（resume 第二轮）────────────────────────────────────

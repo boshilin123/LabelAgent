@@ -119,7 +119,7 @@ class ClientToolResult(BaseModel):
     result: str = Field(description="工具执行结果（JSON 序列化字符串）")
 
 
-# 一次聊天流请求的完整输入：模型配置、历史消息、当前背景、客户端工具结果和可取消任务 ID。
+# 一次聊天流请求的完整输入：模型配置、历史消息、当前背景、客户端工具结果和客户端任务 ID。
 class LocalChatStreamRequest(BaseModel):
     """Lightweight chat/stream request — no DB dependency."""
 
@@ -141,12 +141,7 @@ class LocalChatStreamRequest(BaseModel):
     client_context: ClientContextInput | None = None
     # 非空表示带回客户端工具结果，默认运行时据此构造续跑消息。
     client_tool_results: list[ClientToolResult] = Field(default_factory=list)
-    # 整次流任务的取消标识；与每条工具调用自己的 tool_call_id 分开。
-    client_job_id: str = Field(min_length=1, max_length=64)
-
-
-# 取消接口只需要 client_job_id，后端用它查找当前流任务。
-class ChatCancelRequest(BaseModel):
+    # 客户端任务标识，用于关联本轮运行；停止通过中止原请求传递，与 tool_call_id 分开。
     client_job_id: str = Field(min_length=1, max_length=64)
 
 

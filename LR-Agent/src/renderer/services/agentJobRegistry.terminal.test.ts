@@ -13,6 +13,7 @@ import { streamChatViaBackend } from './backendChatClient';
 import {
   discardAwaitingConfirmation,
   startChatJob,
+  stopJob,
   subscribeJobEvents,
 } from './agentJobRegistry';
 import { resolveTerminalApproval } from './terminalApproval';
@@ -80,6 +81,8 @@ function setupStreamWithTerminalCall() {
 /** fake preload terminal 桥 */
 function installFakeBridge(options?: {
   startResult?: { ok: false; error: string; message?: string };
+  keepRunning?: boolean;
+  startGate?: Promise<void>;
 }) {
   type Evt = {
     type: string;
@@ -95,10 +98,14 @@ function installFakeBridge(options?: {
       if (options?.startResult) return options.startResult;
       // 模拟真实主进程时序：invoke 先返回 jobId，输出/终态事件随后到达
       // （注册表在 start 返回后才置 activeJobId，事件先于返回会被丢弃）
-      await new Promise((r) => setTimeout(r, 10));
+      if (options?.startGate) {
+        await options.startGate;
+      } else {
+        await new Promise((r) => setTimeout(r, 10));
+      }
       setTimeout(() => {
         listener?.({ type: 'output', jobId: 'job-9', chunk: 'on main\n' });
-        if (!exitSent) {
+        if (!options?.keepRunning && !exitSent) {
           exitSent = true;
           listener?.({
             type: 'exit',
@@ -119,7 +126,10 @@ function installFakeBridge(options?: {
         exitCode: 0,
       },
     })),
-    kill: jest.fn(async () => true),
+    kill: jest.fn(async (jobId: string) => {
+      listener?.({ type: 'exit', jobId, status: 'killed', exitCode: null });
+      return true;
+    }),
     onEvent: jest.fn((cb: (evt: Evt) => void) => {
       listener = cb;
       return () => {
@@ -147,6 +157,24 @@ function lastClientToolResults(): Array<Record<string, unknown>> {
   return (secondCall?.clientToolResults ?? []).map((r) => JSON.parse(r.result));
 }
 
+function startTerminalTestJob(jobId: string, events: StreamEvent[]) {
+  subscribeJobEvents(jobId, (event) => events.push(event));
+  return startChatJob({
+    jobId,
+    session: makeSession('sess-term'),
+    messageIds: [],
+    sessionMessages: {},
+    providerId: 'p',
+    providerBaseUrl: 'http://x',
+    providerApiKey: 'k',
+    providerModel: 'm',
+    userMessageId: 'u1',
+    assistantMessageId: 'a1',
+    userContent: '查看 git 状态',
+    clientContext,
+  });
+}
+
 describe('start_terminal_command 客户端工具', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -156,6 +184,60 @@ describe('start_terminal_command 客户端工具', () => {
   afterEach(() => {
     discardAwaitingConfirmation('sess-term');
     delete (window as unknown as { electron?: unknown }).electron;
+  });
+
+  it('等待审批时停止会清理审批，不启动命令或续跑模型', async () => {
+    const bridge = installFakeBridge();
+    const events: StreamEvent[] = [];
+    const run = startTerminalTestJob('job-term-stop-approval', events);
+    await waitFor(() => events.some((event) => event.type === 'terminal_approval'));
+
+    stopJob('job-term-stop-approval');
+    await run;
+
+    expect(bridge.start).not.toHaveBeenCalled();
+    expect(resolveTerminalApproval('tc-term', true)).toBe(false);
+    expect(streamMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('运行中的终端命令随任务中止，不再 resume', async () => {
+    const bridge = installFakeBridge({ keepRunning: true });
+    const events: StreamEvent[] = [];
+    const run = startTerminalTestJob('job-term-stop-running', events);
+    await waitFor(() => events.some((event) => event.type === 'terminal_approval'));
+    resolveTerminalApproval('tc-term', true);
+    await waitFor(() => events.some((event) => event.type === 'terminal_output'));
+
+    stopJob('job-term-stop-running');
+    await run;
+
+    expect(bridge.kill).toHaveBeenCalledWith('job-9');
+    expect(streamMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('启动尚未返回时停止，启动完成后仍会立即中止命令', async () => {
+    let releaseStart!: () => void;
+    const startGate = new Promise<void>((resolve) => {
+      releaseStart = resolve;
+    });
+    const bridge = installFakeBridge({ keepRunning: true, startGate });
+    const events: StreamEvent[] = [];
+    const run = startTerminalTestJob('job-term-stop-starting', events);
+    await waitFor(() => events.some((event) => event.type === 'terminal_approval'));
+    resolveTerminalApproval('tc-term', true);
+    await waitFor(() => bridge.start.mock.calls.length === 1);
+
+    stopJob('job-term-stop-starting');
+    releaseStart();
+    try {
+      await waitFor(() => bridge.kill.mock.calls.length === 1);
+      await run;
+      expect(bridge.kill).toHaveBeenCalledWith('job-9');
+      expect(streamMock).toHaveBeenCalledTimes(1);
+    } finally {
+      await bridge.kill('job-9');
+      await run;
+    }
   });
 
   it('批准后执行：输出回显 + 结果携带 exit_code/job_id 并 resume', async () => {

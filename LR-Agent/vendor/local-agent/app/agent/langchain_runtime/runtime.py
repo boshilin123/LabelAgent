@@ -39,6 +39,7 @@ import json
 from collections.abc import AsyncIterator, Iterable, Sequence
 from typing import Any
 
+import anyio
 from langchain.agents import create_agent
 from langchain.agents.middleware import AgentMiddleware
 from langchain_core.language_models.chat_models import BaseChatModel
@@ -426,15 +427,16 @@ async def stream_agent_raw_events(
             if stop_after_this:
                 break
     finally:
-        # 外层取消或提前结束时，一并停止读取任务，避免留下无人消费的后台流。
-        if not task.done():
-            task.cancel()
-        try:
-            await task
-        except (asyncio.CancelledError, Exception):  # noqa: BLE001
-            pass
-        # 显式闭合底层 astream：即使 task 已自行结束，也保证生成器的 finally 跑过
-        await agen.aclose()
+        # 请求断连后 AnyIO 会持续投递取消；只保护清理，确保读取任务确实结束。
+        with anyio.CancelScope(shield=True):
+            if not task.done():
+                task.cancel()
+            try:
+                await task
+            except (asyncio.CancelledError, Exception):  # noqa: BLE001
+                pass
+            # 即使 task 已自行结束，也显式关闭底层 astream。
+            await agen.aclose()
 
     pending_calls_out.extend(pending)
 

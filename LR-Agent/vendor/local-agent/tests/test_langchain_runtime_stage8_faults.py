@@ -88,7 +88,6 @@ pytestmark = pytest.mark.filterwarnings(
 )
 
 ROUTE = "/api/v1/agent/chat/stream"
-CANCEL_ROUTE = "/api/v1/agent/chat/cancel"
 
 WORKSPACE_CTX = ClientContextInput(workspace_root="/tmp/ws")
 MCP_URL = "http://127.0.0.1:9000"
@@ -493,10 +492,10 @@ async def run_old(
     if mcp_loader is not None:
         patch_mcp(monkeypatch, mcp_loader)
     if cancel_preset:
-        event = _set_event()
-        monkeypatch.setattr(
-            agent_module, "_get_or_create_cancel_event", lambda job_id: event
-        )
+        async def cancelled():
+            return True
+
+        monkeypatch.setattr(agent_module, "task_cancelled", cancelled)
 
     chunks: list[str] = []
     error: BaseException | None = None
@@ -513,14 +512,6 @@ async def run_old(
         executions=executions,
         seen_messages=model.seen_messages,
     )
-
-
-def _set_event():
-    import asyncio
-
-    event = asyncio.Event()
-    event.set()
-    return event
 
 
 # ── 共享 patch / 素材 ─────────────────────────────────────────────────
@@ -592,13 +583,6 @@ def _phase_blocked_payload(tool: str, reason: str) -> str:
         },
         ensure_ascii=False,
     )
-
-
-@pytest.fixture(autouse=True)
-def _clean_cancel_registry():
-    agent_module._cancel_events.clear()
-    yield
-    agent_module._cancel_events.clear()
 
 
 # ── 1. 模型故障 ────────────────────────────────────────────────────────
@@ -1380,10 +1364,10 @@ class TestCancelRace:
         assert run.has_error is False
         assert run.executions["auto_annotate"] == []
 
-    def test_http_route_still_emits_done_when_the_registry_is_cancelled(
+    def test_http_route_uses_shared_task_cancellation_check(
         self, monkeypatch
     ):
-        """走真实 FastAPI 路由 + 取消注册表：``done`` 仍由 HTTP 层发出。"""
+        """保留内部协作钩子的收尾约定；实际断连取消另有生命周期测试。"""
         from fastapi import FastAPI
         from fastapi.testclient import TestClient
 
@@ -1402,11 +1386,11 @@ class TestCancelRace:
         job_id = "job-stage8-http-cancel"
         body = make_body(client_job_id=job_id)
 
+        async def cancelled():
+            return True
+
+        monkeypatch.setattr(entry, "task_cancelled", cancelled)
         with TestClient(app) as client:
-            agent_module._cancel_events[job_id] = _set_event()
-            assert client.post(
-                CANCEL_ROUTE, json={"client_job_id": job_id}
-            ).json() == {"ok": True}
             with client.stream("POST", ROUTE, json=body.model_dump()) as streamed:
                 body_text = "".join(streamed.iter_text())
 

@@ -32,6 +32,7 @@ import type { McpServerConfig } from '../../shared/mcpTypes';
 import {
   deleteAgentSessionRemote,
   fetchAgentSessionDetail,
+  recallAgentHistory,
   fetchAgentSessionsPage,
   loadLocalAgentChatStateForProject,
   backfillLegacyUserIdLocally,
@@ -1853,6 +1854,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
       // 先读取模型真实窗口并补齐未摘要历史；摘要成功后才能移出原文。
       let sessionForJob: AgentSession = nextSession;
       let messageIdsForJob = messageIds;
+      let recalledHistoryContext: string | undefined;
       try {
         const previousWindow = selectedProvider.contextWindowTokens;
         const previousSource = selectedProvider.contextWindowSource;
@@ -1893,6 +1895,13 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
           },
           excludeMessageIds: new Set([assistantMessageId]),
           modelContextWindowTokens: selectedProvider.contextWindowTokens,
+          recallHistory: ({ query, upToMessageId }) =>
+            recallAgentHistory({
+              userId: currentUserIdRef.current,
+              sessionId,
+              upToMessageId,
+              query,
+            }),
           // 摘要真正触发时更新空窗提示（仅此时 summarizeFn 才会被调用）；
           // 配置了辅助模型时摘要走辅助模型凭据，否则跟随会话模型
           summarizeFn: async (summarizeOptions) => {
@@ -1913,7 +1922,12 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
             });
           },
         });
+        if (stateRef.current.sessions[sessionId]?.activeJobId !== jobId) {
+          setPreparingContext(false);
+          return;
+        }
         messageIdsForJob = prepared.windowedMessageIds;
+        recalledHistoryContext = prepared.recalledHistoryContext;
         if (prepared.summarized && prepared.contextSummary) {
           sessionForJob = {
             ...nextSession,
@@ -1952,6 +1966,10 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
           };
         }
       } catch (err) {
+        if (stateRef.current.sessions[sessionId]?.activeJobId !== jobId) {
+          setPreparingContext(false);
+          return;
+        }
         // 不再忽略准备错误后发送超预算输入，也不丢掉未摘要的历史。
         const error = resolveErrorMessage(err, '会话上下文准备失败，请重试');
         updateMessage(sessionId, assistantMessageId, (message) => ({
@@ -1977,6 +1995,12 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      // 准备期间点停止或删除会话后，不启动迟到的请求。
+      if (stateRef.current.sessions[sessionId]?.activeJobId !== jobId) {
+        setPreparingContext(false);
+        return;
+      }
+
       // 构建客户端工具上下文（有标注项目时传入，供 Agent 调用客户端工具使用）
       let conversationTranscript = '';
       if (workMode === 'annotation' && activeProject) {
@@ -1989,6 +2013,8 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
         conversationTranscript = toolTurnCtx.summary
           ? `【此前对话摘要】${toolTurnCtx.summary}\n${toolTurnCtx.transcript}`
           : toolTurnCtx.transcript;
+        if (recalledHistoryContext)
+          conversationTranscript = `${recalledHistoryContext}\n${conversationTranscript}`;
       }
       const clientToolContext: ClientToolContext | null =
         workMode === 'annotation' && activeProject
@@ -2053,6 +2079,7 @@ export function AgentChatProvider({ children }: { children: ReactNode }) {
           userMessageId: userMessageIdForJob,
           assistantMessageId,
           userContent: trimmed,
+          recalledHistoryContext,
           truncateFromMessageId,
           clientContext,
           clientToolContext,

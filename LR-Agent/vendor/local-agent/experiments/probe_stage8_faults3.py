@@ -142,10 +142,13 @@ async def run_old(
     else:
         from unittest import mock
 
-        patch = mock.patch.object(
-            agent_module, "_get_or_create_cancel_event", lambda job_id: _set_event()
-            if cancel_at == 0 else _counter_event(cancel_at)
-        )
+        event = _set_event() if cancel_at == 0 else _counter_event(cancel_at)
+
+        async def cancelled():
+            return event.is_set()
+
+        # 旧观测脚本保留按检查次数停止的模拟；生产默认只读取 asyncio 任务取消。
+        patch = mock.patch.object(agent_module, "task_cancelled", cancelled)
 
     chunks: list[str] = []
     error: str | None = None
@@ -210,14 +213,12 @@ def _set_event():
 
 
 def _counter_event(n: int):
-    """旧路径的 ``is_cancelled`` 是「同一个 Event 的 is_set()」，无法按次数计数。
+    """迁移实验的按检查次数早停替身，通过内部 task_cancelled 钩子注入。
 
-    旧路径没有「按帧计数取消」的注入点，故此分支只模拟「第 n 次模型 chunk
-    检查时已取消」——用事件计时器近似：调用 n-1 次后置位。
+    只供离线对照使用；生产停止不创建这个 Event。
     """
     import asyncio as _a
 
-    event = _a.Event()
     state = {"calls": 0}
 
     class _Event(_a.Event):

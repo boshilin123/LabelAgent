@@ -14,6 +14,8 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, Tool
 from langchain_core.tools import StructuredTool
 from langchain_openai import ChatOpenAI
 
+from app.core.streaming import closing_stream
+
 from app.agent.stream_adapter import events_from_chunk
 from app.agent.tool_dispatcher import resolve_round_tool_calls
 from app.agent.tools.tool_result import (
@@ -287,25 +289,26 @@ class ExploreReadonlyRunner:
             gathered = None
             pending_text: list[str] = []
             try:
-                async for chunk in llm_bound.astream(messages):
-                    if await self.is_cancelled():
-                        status = "error"
-                        summary = summary or "已停止"
-                        stopped = True
-                        gathered = None
-                        break
-                    for event in events_from_chunk(chunk, emit_tool_chunks=False):
-                        if event.type == "text_delta" and event.content:
-                            pending_text.append(event.content)
-                            yield StreamEventPayload(
-                                type="subagent_text_delta",
-                                tool_call_id=parent_tool_id,
-                                content=event.content,
-                            )
-                    if gathered is None:
-                        gathered = chunk
-                    else:
-                        gathered = gathered + chunk
+                async with closing_stream(llm_bound.astream(messages)) as _events_stream:
+                    async for chunk in _events_stream:
+                        if await self.is_cancelled():
+                            status = "error"
+                            summary = summary or "已停止"
+                            stopped = True
+                            gathered = None
+                            break
+                        for event in events_from_chunk(chunk, emit_tool_chunks=False):
+                            if event.type == "text_delta" and event.content:
+                                pending_text.append(event.content)
+                                yield StreamEventPayload(
+                                    type="subagent_text_delta",
+                                    tool_call_id=parent_tool_id,
+                                    content=event.content,
+                                )
+                        if gathered is None:
+                            gathered = chunk
+                        else:
+                            gathered = gathered + chunk
             except Exception as exc:
                 status = "error"
                 summary = f"查阅失败：{exc}"
@@ -416,20 +419,21 @@ class ExploreReadonlyRunner:
                     messages.append(
                         HumanMessage(content="请用中文给出查阅摘要，不要再调用工具。")
                     )
-                    async for chunk in self.llm.astream(messages):
-                        if await self.is_cancelled():
-                            status = "error"
-                            summary = "已停止"
-                            pending = []
-                            break
-                        for event in events_from_chunk(chunk, emit_tool_chunks=False):
-                            if event.type == "text_delta" and event.content:
-                                pending.append(event.content)
-                                yield StreamEventPayload(
-                                    type="subagent_text_delta",
-                                    tool_call_id=parent_tool_id,
-                                    content=event.content,
-                                )
+                    async with closing_stream(self.llm.astream(messages)) as _events_stream:
+                        async for chunk in _events_stream:
+                            if await self.is_cancelled():
+                                status = "error"
+                                summary = "已停止"
+                                pending = []
+                                break
+                            for event in events_from_chunk(chunk, emit_tool_chunks=False):
+                                if event.type == "text_delta" and event.content:
+                                    pending.append(event.content)
+                                    yield StreamEventPayload(
+                                        type="subagent_text_delta",
+                                        tool_call_id=parent_tool_id,
+                                        content=event.content,
+                                    )
                     if status == "done":
                         summary = "".join(pending).strip()
             except Exception as exc:

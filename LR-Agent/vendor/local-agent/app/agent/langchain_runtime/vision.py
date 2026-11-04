@@ -127,6 +127,8 @@ from langchain_core.messages import AIMessage, AnyMessage, HumanMessage, ToolMes
 from langgraph.types import Command
 from typing_extensions import NotRequired
 
+from app.core.streaming import closing_stream
+
 from app.agent.assist.vision_bootstrap import VisionAutoLoader
 from app.agent.assist_vision import (
     can_bootstrap_vision,
@@ -219,15 +221,16 @@ async def _collect_vision_execution(
     """
     collected: list[AnyMessage] = []
     events: list[Any] = []
-    async for event in stream_vision_tool_execution(
+    async with closing_stream(stream_vision_tool_execution(
         tool_id=tool_id,
         relative_path=relative_path,
         vision_fn=vision_fn,
         provider_is_vision=provider_is_vision,
         settings=settings,
         messages=collected,
-    ):
-        events.append(event)
+    )) as _events_stream:
+        async for event in _events_stream:
+            events.append(event)
 
     display = ""
     for message in collected:

@@ -1285,14 +1285,14 @@ class TestMcpUnavailable:
         assert not any(e["type"] == "error" for e in events)
 
 
-# ── 取消（HTTP 层）：流中断仍以 done 收尾 ──────────────────────────────
+# ── 内部协作早停：保留旧路径的 done 约定；真实断连另有生命周期测试 ──────
 
 
 class TestCancelHttpLevel:
-    """阶段 0 基线 / 阶段 7 依赖：取消时已取出的帧被丢弃，SSE 仅以 done 收尾。"""
+    """内部布尔钩子的旧收尾约定；不代表客户端断连后还能收到 done。"""
 
     async def test_cancelled_job_emits_only_done_frame(self, monkeypatch):
-        from app.api.v1.agent import _cancel_events
+        from app.api.v1 import agent as agent_module
 
         async def _fake_assist(*args, **kwargs):
             yield StreamEventPayload(type="preparing", stage="streaming")
@@ -1302,19 +1302,17 @@ class TestCancelHttpLevel:
             return []
 
         job_id = "job-baseline-cancelled"
-        event = asyncio.Event()
-        event.set()
-        _cancel_events[job_id] = event
-        try:
-            events = await _collect_sse(
-                _http_body(None, client_job_id=job_id),
-                monkeypatch,
-                mcp_loader=_unused_loader,
-                assist_stream=_fake_assist,
-            )
-        finally:
-            _cancel_events.pop(job_id, None)
+        async def cancelled():
+            return True
+
+        monkeypatch.setattr(agent_module, "task_cancelled", cancelled)
+        events = await _collect_sse(
+            _http_body(None, client_job_id=job_id),
+            monkeypatch,
+            mcp_loader=_unused_loader,
+            assist_stream=_fake_assist,
+        )
 
         # 取消检查在 yield 之前：已从生成器取出的那一帧也被丢弃，
-        # 因此取消后只剩 done 帧 —— 前端靠它关闭 job。
+        # 因此内部协作式早停只剩 done 帧；按钮中止原请求的行为另测。
         assert events == [{"type": "done"}]

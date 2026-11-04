@@ -480,6 +480,8 @@ async function runTerminalCommandTool(
     void bridge.kill(start.jobId);
   };
   signal.addEventListener('abort', killOnAbort);
+  // 停止可能发生在等待 bridge.start 返回期间；注册监听不会重放已经发生的 abort。
+  if (signal.aborted) killOnAbort();
 
   try {
     const finalState = await exitPromise;
@@ -712,6 +714,8 @@ export async function startChatJob(options: {
   truncateFromMessageId?: string | null;
   clientContext?: ClientContextPayload;
   systemPrompt?: string;
+  /** 本轮回查的只读原文，不保存成会话消息或摘要。 */
+  recalledHistoryContext?: string;
   /** 客户端工具执行所需上下文，有标注项目时传入 */
   clientToolContext?: ClientToolContext | null;
   onPersistEvent?: (event: StreamEvent) => void;
@@ -752,6 +756,12 @@ export async function startChatJob(options: {
     options.sessionMessages,
     { excludeMessageIds: new Set([options.assistantMessageId]) },
   );
+  if (options.recalledHistoryContext) {
+    priorMessages.unshift({
+      role: 'system',
+      content: options.recalledHistoryContext,
+    });
+  }
   const turnHistory = new TurnToolHistoryAccumulator();
 
   // Log send context once at entry

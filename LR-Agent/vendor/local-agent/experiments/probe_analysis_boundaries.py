@@ -17,7 +17,6 @@ from app.agent import chat_service
 from app.agent.langchain_runtime import entry
 from app.agent.langchain_runtime.resume import prepare_resume_messages
 from app.agent.langchain_runtime.round_plan import plan_round
-from app.api.v1.agent import _cancel_events, _cleanup_cancel_event, _get_or_create_cancel_event
 from app.schemas.agent import ClientToolResult, LocalChatStreamRequest, StreamEventPayload
 
 
@@ -43,13 +42,20 @@ def observe_resume_and_round_plan() -> None:
 async def observe_cancellation() -> None:
     job_id = "analysis-" + uuid4().hex
     release = asyncio.Event()
+    waiting = asyncio.Event()
+    closed = asyncio.Event()
     original_pair = entry.build_llm_pair
     original_chat = chat_service.stream_chat
 
     async def slow_chat(*_args, **_kwargs):
-        yield StreamEventPayload(type="text_delta", content="first")
-        await release.wait()
-        yield StreamEventPayload(type="text_delta", content="second")
+        try:
+            yield StreamEventPayload(type="text_delta", content="first")
+            waiting.set()
+            await release.wait()
+            yield StreamEventPayload(type="text_delta", content="second")
+        finally:
+            await asyncio.sleep(0)
+            closed.set()
 
     entry.build_llm_pair = lambda _body: (None, None)
     chat_service.stream_chat = slow_chat
@@ -61,12 +67,11 @@ async def observe_cancellation() -> None:
     try:
         await anext(stream)
         pending = asyncio.create_task(anext(stream))
-        _get_or_create_cancel_event(job_id).set()
-        done, _ = await asyncio.wait({pending}, timeout=0.05)
-        print("cancel_while_source_waits_completed_within_50ms:", bool(done))
-        release.set()
-        frame = await asyncio.wait_for(pending, timeout=1)
-        print("after_source_released_frame:", json.loads(frame.removeprefix("data: ").strip())["type"])
+        await asyncio.wait_for(waiting.wait(), timeout=1)
+        pending.cancel()
+        result = await asyncio.wait_for(asyncio.gather(pending, return_exceptions=True), timeout=1)
+        print("cancel_while_source_waits_propagates:", isinstance(result[0], asyncio.CancelledError))
+        print("source_cleanup_finished:", closed.is_set())
     finally:
         release.set()
         if pending is not None and not pending.done():
@@ -75,13 +80,6 @@ async def observe_cancellation() -> None:
         await stream.aclose()
         entry.build_llm_pair = original_pair
         chat_service.stream_chat = original_chat
-        _cleanup_cancel_event(job_id)
-    first = _get_or_create_cancel_event(job_id)
-    second = _get_or_create_cancel_event(job_id)
-    first.set()
-    print("overlapping_same_job_id_shares_cancel:", first is second and second.is_set())
-    _cleanup_cancel_event(job_id)
-    print("cleanup_removes_other_live_reference:", job_id not in _cancel_events)
 
 
 if __name__ == "__main__":

@@ -73,7 +73,6 @@ local_main.py            # FastAPI 入口
 | 方法 | 路径 | 说明 |
 |------|------|------|
 | POST | `/api/v1/agent/chat/stream` | Assist SSE 流式对话 |
-| POST | `/api/v1/agent/chat/cancel` | 取消 Assist 任务 |
 | POST | `/api/v1/agent/annotation/batch-prepare` | 批量标注范围+计划 |
 | POST | `/api/v1/agent/annotation/mutation-prepare` | 标注变更准备 |
 | POST | `/api/v1/agent/annotation/map-detection-boxes` | 检测框标签映射 |
@@ -81,6 +80,16 @@ local_main.py            # FastAPI 入口
 | POST | `/api/v1/agent/annotation/map-heuristic` | 启发式映射（无 LLM） |
 | POST | `/api/v1/agent/annotation/llm-generate` | 通用 LLM 生成代理（caption/cot/instruction 等） |
 | POST | `/api/v1/agent/annotation-quality/*` | 质量报告 LLM 服务 |
+
+聊天停止统一通过中止原来的 `/chat/stream` 请求实现：前端 `AbortController` → HTTP 断连 →
+取消该请求持有的业务读取任务 → 逐层关闭模型、工具和子代理事件流，并等待异步清理。
+默认引擎、legacy 回退和无工具聊天共用此生命周期；独立的 `/chat/cancel` 接口和按任务 ID
+保存的 Event 注册表已移除。`client_job_id` 仍保留为客户端任务关联字段。
+
+同步线程中已经执行的函数不能被 Python 强制终止，已完成的业务操作也不会自动撤销。
+审计范围、实现与验证见 [统一取消流程说明](../../../docs/2026-11-04统一取消流程说明.md)。
+
+摘要遗漏细节时，桌面端发送前会按消息 ID、轮次或关键词，从当前用户、当前会话的 SQLite 原文回查并补入带来源的只读引用。引用计入既有 80% 预算，不重放历史工具。Python 服务继续只接收本轮材料，不直接访问会话数据库。详见 [原文回查修复](../../../docs/2026-11-04会话原文回查修复.md)。
 
 ## 与 backend 的差异
 

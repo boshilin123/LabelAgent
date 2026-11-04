@@ -44,7 +44,7 @@
   重复 id 另由 ``completed_tool_ids`` 的 ``already_completed`` 抑制兜底。
 
 **必须活在请求外的状态：无。** 未引入 checkpointer / ``interrupt()`` /
-``StateGraph``；唯一例外是旧路径既有的 ``app/api/v1/agent.py`` 取消事件注册表。
+``StateGraph``；停止随当前请求的 asyncio 任务取消传递，不再维护进程内取消注册表。
 """
 
 from __future__ import annotations
@@ -54,6 +54,8 @@ from dataclasses import dataclass
 from typing import Any
 
 from langchain_core.messages import ToolMessage
+
+from app.core.streaming import closing_stream
 
 from app.agent.assist.task_phase import TaskPhase, TaskPhaseContext
 from app.agent.context_service import append_client_tool_results_to_messages
@@ -330,7 +332,7 @@ async def stream_resume_raw_events(
     的弃用声明 —— 该参数无生产消费者，且在 ``finally`` 里流结束后才回填，
     无法供**流中**发出的 ``tool_pending`` 帧使用）。
     """
-    async for event in stream_agent_raw_events(
+    async with closing_stream(stream_agent_raw_events(
         agent,
         turn.messages,
         context=turn.context,
@@ -338,5 +340,6 @@ async def stream_resume_raw_events(
         version=version,
         pending_calls_out=pending_calls_out,
         early_stop_on_client_tools=False,
-    ):
-        yield event
+    )) as _events_stream:
+        async for event in _events_stream:
+            yield event

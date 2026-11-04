@@ -4,6 +4,8 @@ import { probeAndPersistProviderContext } from '../llm/probeProviderContext';
 import * as sessionRepo from './sessionRepository';
 import * as messageRepo from './messageRepository';
 import * as providerRepo from './providerRepository';
+import { recallSessionHistory } from './historyRepository';
+import type { HistoryRecallRequest } from '../../shared/conversationHistory';
 
 export function registerDbHandlers(): void {
   // ── Session handlers ──────────────────────────────────────────────
@@ -111,6 +113,13 @@ export function registerDbHandlers(): void {
   );
 
   // ── Message handlers ──────────────────────────────────────────────
+
+  ipcMain.handle(
+    'db:messages:recall',
+    (_event, request: HistoryRecallRequest) => {
+      return recallSessionHistory(request);
+    },
+  );
 
   ipcMain.handle(
     'db:messages:list',

@@ -14,7 +14,7 @@
    ``tests/test_engine_switch_import_safety.py``。
 2. **复用旧前置段而不是重写**：模型构造、辅助模型、``has_tools`` 判定、阶段上下文、
    系统提示、工具清单、MCP 发现（含 ``preparing(stage="mcp")`` 与失败兜底）、
-   ``sorted(key=name)`` 稳定化、取消事件注册表，全部逐条从
+   ``sorted(key=name)`` 稳定化，全部逐条从
    ``app/api/v1/agent.py::_stream_local_chat``（:133-503）搬来；
    本模块因此**不新增任何业务判定**。
 3. **装配期硬断言**（阶段 5 §5-1 / §6-1、阶段 5 §5-2 / §6-3）：
@@ -45,6 +45,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.agent.tools.tool_registry_meta import CANONICAL_CAPABILITIES
+from app.core.streaming import closing_stream, close_stream, task_cancelled
 from app.schemas.agent import ClientContextInput, LocalChatStreamRequest, StreamEventPayload
 
 logger = logging.getLogger(__name__)
@@ -635,7 +636,7 @@ async def _stream_candidate_frames(
     """驱动适配器（单独一层，便于测试注入与生命周期管理）。"""
     from app.agent.langchain_runtime.sse_adapter import SseStreamConfig, stream_agent_events
 
-    async for frame in stream_agent_events(
+    events = stream_agent_events(
         agent,
         messages=resolved["messages"],
         config=SseStreamConfig(
@@ -646,11 +647,13 @@ async def _stream_candidate_frames(
         ),
         client_context=resolved["client_context"],
         task_phase_ctx=resolved["task_phase_ctx"],
-    ):
-        yield frame
+    )
+    async with closing_stream(events):
+        async for frame in events:
+            yield frame
 
 
-# 默认工具型 Agent 的流式业务入口：准备 → 装配 → 驱动图 → 输出 SSE → 清理取消状态。
+# 默认工具型 Agent 的流式业务入口：准备 → 装配 → 驱动图 → 输出 SSE → 关闭下层流。
 # async for 会逐帧取结果；yield 把当前帧交给上层 HTTP 响应，不必等整轮任务全部完成。
 async def stream_candidate_engine_sse(
     body: LocalChatStreamRequest,
@@ -669,101 +672,88 @@ async def stream_candidate_engine_sse(
     - MCP loader 失败只记 warning，本轮继续（工具集退回本地工具）；
     - 适配器首帧 ``preparing(stage="streaming")``；
     - 每帧 **yield 前**查一次取消（旧 ``agent.py:486-487``），取消则断流；
-    - 结尾恒发 ``done``（含取消路径；异常不补 ``done``，与旧路径的 ``try/finally`` 同构）。
+    - 正常结束发 ``done``；请求被取消时传播取消异常、关闭下层流，不再补发结束帧。
+    - ``is_cancelled`` 保留为内部业务/测试钩子；默认读取 asyncio 任务状态，无 Event 注册表。
 
     ``on_plan`` / ``agent_builder`` / ``frame_source`` 是给阶段 7 集成测试的
     **装配观测口**，默认 ``None`` = 生产实现；它们不改变任何业务判定。
     """
-    from app.api.v1.agent import (
-        _cleanup_cancel_event,
-        _get_or_create_cancel_event,
-    )
-
-    # client_job_id 标识这次可取消任务；它不是模型生成的 tool_call_id。
+    # client_job_id 仍用于关联本次运行；停止的唯一默认来源是请求任务取消。
     client_job_id: str = body.client_job_id
-    cancelled = is_cancelled
-    if cancelled is None:
-        cancel_event = _get_or_create_cancel_event(client_job_id)
-
-        # 闭包读取本次任务的取消事件；闭包表示内部函数可以继续访问外层的 cancel_event。
-        async def cancelled() -> bool:  # type: ignore[misc]
-            return cancel_event.is_set()
+    cancelled = task_cancelled if is_cancelled is None else is_cancelled
 
     # 统一等待取消检查函数的结果，供当前流和子代理共用。
     async def _is_cancelled() -> bool:
         return bool(await cancelled())
 
-    try:
-        stream_modes = assemble_stream_modes()
+    stream_modes = assemble_stream_modes()
 
-        if not _has_tools(body):
-            # 无 client_context / 无工作区：与旧路径一致地走 chat_service.stream_chat
-            # （无工具、无图、无阶段）。候选内核不适用于这条纯聊天路径。
-            from app.agent import chat_service
+    if not _has_tools(body):
+        # 无 client_context / 无工作区：与旧路径一致地走 chat_service.stream_chat
+        # （无工具、无图、无阶段）。候选内核不适用于这条纯聊天路径。
+        from app.agent import chat_service
 
-            llm, _aux = build_llm_pair(body)
-            system_prompt = body.system_prompt or _chat_system_prompt()
-            stream = chat_service.stream_chat(llm, _build_lc_messages(body, system_prompt))
-            try:
-                async for event in stream:
-                    if await _is_cancelled():
-                        break
-                    yield sse_frame(event)
-            finally:
-                await _aclose(stream)
-            yield SSE_DONE_FRAME
-            return
-
-        system_prompt = build_system_prompt(body)
-
-        if _mcp_configured(body):
-            yield sse_frame(StreamEventPayload(type="preparing", stage="mcp"))
-
-        llm, aux_llm = build_llm_pair(body)
-        tools = await merge_mcp_tools(body, settings, build_local_tools(body, settings))
-        # 有客户端回传的工具结果时进入续跑；没有结果则按普通首轮处理。
-        is_resume = bool(body.client_tool_results)
-
-        plan = build_agent_run_plan(
-            tools=tools,
-            stream_modes=stream_modes,
-            is_resume=is_resume,
-            has_tools=True,
-            client_job_id=client_job_id,
-        )
-        if on_plan is not None:
-            on_plan(plan)
-
-        # 默认使用真实业务工厂；可注入替代工厂是为了离线测试装配过程。
-        builder = agent_builder or build_engine_agent
-        built = builder(
-            llm=llm,
-            aux_llm=aux_llm,
-            tools=tools,
-            settings=settings,
-            is_cancelled=_is_cancelled,
-            body=body,
-            system_prompt=system_prompt,
-            task_phase_ctx=_derive_task_phase(body),
-            is_resume=is_resume,
-        )
-        agent, _model, resolved = built
-
-        source = frame_source or _stream_candidate_frames
-        frames = source(agent, resolved, stream_modes=stream_modes)
+        llm, _aux = build_llm_pair(body)
+        system_prompt = body.system_prompt or _chat_system_prompt()
+        stream = chat_service.stream_chat(llm, _build_lc_messages(body, system_prompt))
         try:
-            async for frame in frames:
+            async for event in stream:
                 if await _is_cancelled():
                     break
-                yield sse_frame(frame)
+                yield sse_frame(event)
         finally:
-            # 取消 / 中途放弃时把框架流真正关掉（阶段 4 备忘 §7）：
-            # ``break`` 后的 async generator 不会被自动 aclose，必须显式关闭。
-            await _aclose(frames)
-
+            await close_stream(stream)
         yield SSE_DONE_FRAME
+        return
+
+    system_prompt = build_system_prompt(body)
+
+    if _mcp_configured(body):
+        yield sse_frame(StreamEventPayload(type="preparing", stage="mcp"))
+
+    llm, aux_llm = build_llm_pair(body)
+    tools = await merge_mcp_tools(body, settings, build_local_tools(body, settings))
+    # 有客户端回传的工具结果时进入续跑；没有结果则按普通首轮处理。
+    is_resume = bool(body.client_tool_results)
+
+    plan = build_agent_run_plan(
+        tools=tools,
+        stream_modes=stream_modes,
+        is_resume=is_resume,
+        has_tools=True,
+        client_job_id=client_job_id,
+    )
+    if on_plan is not None:
+        on_plan(plan)
+
+    # 默认使用真实业务工厂；可注入替代工厂是为了离线测试装配过程。
+    builder = agent_builder or build_engine_agent
+    built = builder(
+        llm=llm,
+        aux_llm=aux_llm,
+        tools=tools,
+        settings=settings,
+        is_cancelled=_is_cancelled,
+        body=body,
+        system_prompt=system_prompt,
+        task_phase_ctx=_derive_task_phase(body),
+        is_resume=is_resume,
+    )
+    agent, _model, resolved = built
+
+    source = frame_source or _stream_candidate_frames
+    frames = source(agent, resolved, stream_modes=stream_modes)
+    try:
+        async for frame in frames:
+            if await _is_cancelled():
+                break
+            yield sse_frame(frame)
     finally:
-        _cleanup_cancel_event(client_job_id)
+        # 取消 / 中途放弃时把框架流真正关掉（阶段 4 备忘 §7）：
+        # ``break`` 后的 async generator 不会被自动 aclose，必须显式关闭。
+        await close_stream(frames)
+
+    yield SSE_DONE_FRAME
 
 
 # 普通聊天分支复用默认聊天提示词；此分支不需要工具执行图。
@@ -771,23 +761,6 @@ def _chat_system_prompt() -> str:
     from app.agent.context_service import CHAT_SYSTEM_PROMPT
 
     return CHAT_SYSTEM_PROMPT
-
-
-# 尽力关闭异步生成器，让内部 finally 清理任务和连接；关闭流不等于撤销已执行的操作。
-async def _aclose(agen: Any) -> None:
-    """尽力关闭一个 async generator（不存在 ``aclose`` 时静默跳过）。
-
-    只吞「尚未启动 / 已关闭」的 ``RuntimeError``（``aclose`` 对未启动的生成器
-    抛 ``RuntimeError: aclose(): asynchronous generator is already running`` 的兄弟情形），
-    其它异常照旧上抛——收尾阶段也不得把真实错误静默掉。
-    """
-    aclose = getattr(agen, "aclose", None)
-    if aclose is None:
-        return
-    try:
-        await aclose()
-    except RuntimeError:
-        logger.debug("candidate engine: abandoned stream already finished", exc_info=True)
 
 
 # 根据服务端 Settings.agent_engine 选择默认 candidate 或兼容 legacy 路径。
@@ -809,11 +782,15 @@ async def stream_engine_sse(
     engine = str(getattr(settings, "agent_engine", "legacy") or "legacy").strip().lower()
 
     if engine == "candidate":
-        async for chunk in stream_candidate_engine_sse(body, settings, is_cancelled=None):
-            yield chunk
+        stream = stream_candidate_engine_sse(body, settings)
+        async with closing_stream(stream):
+            async for chunk in stream:
+                yield chunk
         return
 
     from app.api.v1.agent import _stream_local_chat
 
-    async for chunk in _stream_local_chat(body, settings):
-        yield chunk
+    stream = _stream_local_chat(body, settings)
+    async with closing_stream(stream):
+        async for chunk in stream:
+            yield chunk

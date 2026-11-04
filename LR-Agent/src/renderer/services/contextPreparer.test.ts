@@ -4,6 +4,7 @@ import {
   deriveMaxContextTokens,
 } from './contextPreparer';
 import { buildBackendMessages } from './backendChatClient';
+import type { HistoryRecallResult } from '../../shared/conversationHistory';
 import type {
   AgentSession,
   ChatContextConfig,
@@ -389,5 +390,222 @@ describe('model-sized context protection', () => {
     expect(summarizeFn.mock.calls[0][0].evictedTranscript).toContain(
       'call-old',
     );
+  });
+});
+
+describe('recalling raw history omitted from a summary', () => {
+  function history(upToMessageId: string): HistoryRecallResult {
+    return {
+      sessionId: 's1',
+      upToMessageId,
+      explicitReference: true,
+      turns: [
+        {
+          turn: 1,
+          score: 5,
+          messages: [
+            {
+              id: 'u0',
+              role: 'user',
+              text: '确定检测阈值',
+              createdAt: 1,
+              updatedAt: 1,
+              truncated: false,
+            },
+            {
+              id: 'a0',
+              role: 'assistant',
+              text: '检测阈值为 0.37',
+              createdAt: 1,
+              updatedAt: 1,
+              truncated: false,
+            },
+          ],
+        },
+      ],
+    };
+  }
+
+  it('restores a missing exact value without reinserting old message IDs or changing the summary', async () => {
+    const { ids, messages } = makeTurns(4, 10);
+    delete messages.u0;
+    delete messages.a0;
+    const session = makeSession({
+      messageIds: ids,
+      contextSummary: '已确定检测参数',
+      summaryUpToMessageId: 'a1',
+    });
+    const recallHistory = jest.fn(async ({ upToMessageId }) =>
+      history(upToMessageId),
+    );
+    const prepared = await prepareChatContext({
+      session,
+      messageIds: ids,
+      sessionMessages: messages,
+      currentUserContent: '之前检测阈值是多少？',
+      provider,
+      recallHistory,
+    });
+    expect(prepared.recalledHistoryContext).toContain('0.37');
+    expect(prepared.windowedMessageIds).toEqual(ids.slice(4));
+    expect(prepared.summarized).toBe(false);
+    expect(session.contextSummary).toBe('已确定检测参数');
+    expect(recallHistory).toHaveBeenCalledWith({
+      query: '之前检测阈值是多少？',
+      upToMessageId: 'a1',
+    });
+  });
+
+  it('recalls a fact even when this same request first compresses it out of the window', async () => {
+    const { ids, messages } = makeTurns(10, 10);
+    messages.a0.blocks = [{ type: 'text', content: '检测阈值为 0.37' }];
+    const summarizeFn = jest.fn().mockResolvedValue('已确定检测参数');
+    const recallHistory = jest.fn(async ({ upToMessageId }) =>
+      history(upToMessageId),
+    );
+    const prepared = await prepareChatContext({
+      session: makeSession(),
+      messageIds: ids,
+      sessionMessages: messages,
+      currentUserContent: '之前检测阈值是多少？',
+      provider,
+      recallHistory,
+      summarizeFn,
+      config: { ...smallConfig, maxContextTokens: 8_000 },
+    });
+    expect(prepared.summarized).toBe(true);
+    expect(prepared.contextSummary).toBe('已确定检测参数');
+    expect(prepared.recalledHistoryContext).toContain('0.37');
+    expect(recallHistory).toHaveBeenCalledWith({
+      query: '之前检测阈值是多少？',
+      upToMessageId: prepared.summaryUpToMessageId,
+    });
+    expect(summarizeFn.mock.calls[0][0].evictedTranscript).not.toContain(
+      '历史会话原文回查',
+    );
+    expect(prepared.tokenEstimate).toBeLessThanOrEqual(8_000);
+  });
+
+  it('includes serialized recall evidence in the same total token budget', async () => {
+    const { ids, messages } = makeTurns(4, 10);
+    delete messages.u0;
+    delete messages.a0;
+    const prepared = await prepareChatContext({
+      session: makeSession({
+        contextSummary: '已确定参数',
+        summaryUpToMessageId: 'a1',
+      }),
+      messageIds: ids,
+      sessionMessages: messages,
+      currentUserContent: '之前阈值是多少',
+      provider,
+      modelContextWindowTokens: 10_000,
+      recallHistory: async ({ upToMessageId }) => history(upToMessageId),
+    });
+    const payload = [
+      { role: 'system', content: prepared.recalledHistoryContext },
+      ...buildBackendMessages(prepared.windowedMessageIds, messages),
+    ];
+    expect(prepared.tokenEstimate).toBe(
+      estimateTokens(JSON.stringify(payload)) + estimateTokens('已确定参数'),
+    );
+    expect(prepared.tokenEstimate).toBeLessThanOrEqual(8_000);
+  });
+
+  it('charges actual recalled text instead of reserving its maximum and dropping a recent turn', async () => {
+    const { ids, messages } = makeTurns(13, 1_200);
+    messages.a0.blocks = [{ type: 'text', content: '检测阈值为 0.37' }];
+    const keptCost = estimateTokens(
+      JSON.stringify(buildBackendMessages(ids.slice(-20), messages)),
+    );
+    expect(keptCost).toBeGreaterThan(8_000);
+    const prepared = await prepareChatContext({
+      session: makeSession(),
+      messageIds: ids,
+      sessionMessages: messages,
+      currentUserContent: '之前检测阈值是多少？',
+      provider,
+      config: {
+        windowStrategy: 'tokens',
+        maxContextTokens: 10_000,
+        maxTurnsInWindow: 20,
+        summarizeTriggerRatio: 1,
+        minTurnsBeforeSummarize: 10,
+      },
+      summarizeFn: jest.fn().mockResolvedValue('已确定检测参数'),
+      recallHistory: async ({ upToMessageId }) => history(upToMessageId),
+    });
+    expect(prepared.summarized).toBe(true);
+    expect(prepared.windowedMessageIds).toEqual(ids.slice(-20));
+    expect(prepared.tokenEstimate).toBeLessThanOrEqual(10_000);
+  });
+
+  it('can recall a short exact value on a 4K model without an artificially tiny recall allowance', async () => {
+    const { ids, messages } = makeTurns(4, 10);
+    delete messages.u0;
+    delete messages.a0;
+    const prepared = await prepareChatContext({
+      session: makeSession({
+        contextSummary: '已确定参数',
+        summaryUpToMessageId: 'a1',
+      }),
+      messageIds: ids,
+      sessionMessages: messages,
+      currentUserContent: '之前阈值是多少？',
+      provider,
+      modelContextWindowTokens: 4_000,
+      recallHistory: async ({ upToMessageId }) => history(upToMessageId),
+    });
+    expect(prepared.recalledHistoryContext).toContain('0.37');
+    expect(prepared.tokenEstimate).toBeLessThanOrEqual(3_200);
+  });
+
+  it('does not search before there is any summarized history', async () => {
+    const { ids, messages } = makeTurns(2, 10);
+    const recallHistory = jest.fn();
+    await prepareChatContext({
+      session: makeSession(),
+      messageIds: ids,
+      sessionMessages: messages,
+      currentUserContent: '之前阈值是多少',
+      provider,
+      recallHistory,
+    });
+    expect(recallHistory).not.toHaveBeenCalled();
+  });
+
+  it('fails visibly when the history store is unavailable instead of silently guessing', async () => {
+    const { ids, messages } = makeTurns(3, 10);
+    await expect(
+      prepareChatContext({
+        session: makeSession({ summaryUpToMessageId: 'a0' }),
+        messageIds: ids,
+        sessionMessages: messages,
+        currentUserContent: '之前阈值是多少',
+        provider,
+        recallHistory: jest
+          .fn()
+          .mockRejectedValue(new Error('history unavailable')),
+      }),
+    ).rejects.toThrow('history unavailable');
+  });
+
+  it('does not proceed after a cancelled lookup', async () => {
+    const { ids, messages } = makeTurns(3, 10);
+    const controller = new AbortController();
+    await expect(
+      prepareChatContext({
+        session: makeSession({ summaryUpToMessageId: 'a0' }),
+        messageIds: ids,
+        sessionMessages: messages,
+        currentUserContent: '之前阈值是多少',
+        provider,
+        signal: controller.signal,
+        recallHistory: async ({ upToMessageId }) => {
+          controller.abort();
+          return history(upToMessageId);
+        },
+      }),
+    ).rejects.toThrow('Aborted');
   });
 });

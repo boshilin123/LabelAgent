@@ -6,7 +6,6 @@ Session/chat CRUD and LLM provider config live in the Electron frontend
 (local SQLite storage + direct LLM API calls for simple chat).
 """
 
-import asyncio
 import json
 import logging
 from typing import Any
@@ -35,9 +34,9 @@ from app.agent.tools.mcp_client import (
 from app.agent.tools.registry import build_tools_by_name_set
 from app.agent.tools.tool_registry_meta import CANONICAL_CAPABILITIES
 from app.core.deps import SettingsDep
+from app.core.streaming import ClosingStreamingResponse, close_stream, task_cancelled
 from app.models.user import User
 from app.schemas.agent import (
-    ChatCancelRequest,
     ClientContextInput,
     LocalChatStreamRequest,
     McpProbeRequest,
@@ -47,22 +46,6 @@ from app.schemas.agent import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/agent", tags=["agent"])
-
-# 进程内的任务取消登记表；服务重启会清空，也没有跨多个进程共享。
-_cancel_events: dict[str, asyncio.Event] = {}
-
-
-# 按 client_job_id 获取或创建 asyncio.Event，让流式请求和取消接口共享同一取消标记。
-def _get_or_create_cancel_event(client_job_id: str) -> asyncio.Event:
-    if client_job_id not in _cancel_events:
-        _cancel_events[client_job_id] = asyncio.Event()
-    return _cancel_events[client_job_id]
-
-
-# 任务结束后删除取消标记，避免进程内字典持续积累；不存在时也可安全调用。
-def _cleanup_cancel_event(client_job_id: str) -> None:
-    _cancel_events.pop(client_job_id, None)
-
 
 # 构造本地匿名用户数据，满足工具注册接口所需字段，不查询数据库。
 def _anonymous_user() -> User:
@@ -144,14 +127,9 @@ async def _stream_local_chat(
 ) -> Any:
     """无状态 chat/stream 生成器——所有数据从请求体获取，不读 DB。"""
 
-    client_job_id: str = body.client_job_id
-    cancel_event = _get_or_create_cancel_event(
-        client_job_id
-    )
-
-    # 读取该任务的取消事件，供旧工具循环在多个步骤之间协作式停止。
-    async def is_cancelled() -> bool:
-        return cancel_event.is_set()
+    # 和默认引擎一样，停止来自请求任务的取消；保留业务循环共用的检查钩子。
+    is_cancelled = task_cancelled
+    stream = None
 
     try:
         base_url = body.base_url.rstrip("/")
@@ -507,9 +485,7 @@ async def _stream_local_chat(
         yield 'data: {"type": "done"}\n\n'
 
     finally:
-        _cleanup_cancel_event(
-            client_job_id
-        )
+        await close_stream(stream)
 
 
 # 真正接收 /agent/chat/stream 请求的 HTTP 处理函数，按服务端引擎配置返回 SSE 响应。
@@ -541,7 +517,7 @@ async def local_chat_stream(
     )
     if engine != "candidate":
         # 显式回退或缺失配置对象的兼容路径；不触碰 candidate 包。
-        return StreamingResponse(
+        return ClosingStreamingResponse(
             _stream_local_chat(
                 body,
                 settings,
@@ -552,7 +528,7 @@ async def local_chat_stream(
     from app.agent.langchain_runtime.entry import stream_candidate_engine_sse
 
     # StreamingResponse 会逐段消费生成器，把结果以 text/event-stream 返回给调用方。
-    return StreamingResponse(
+    return ClosingStreamingResponse(
         stream_candidate_engine_sse(
             body,
             settings,
@@ -560,25 +536,6 @@ async def local_chat_stream(
         ),
         media_type="text/event-stream",
     )
-
-
-# 按任务 ID 设置取消事件；流式处理在检查到标记后停止，不代表立即撤销已完成的工具副作用。
-@router.post("/chat/cancel")
-async def cancel_chat(
-    body: ChatCancelRequest,
-) -> dict[str, bool]:
-    """取消正在进行的 chat/stream 任务。"""
-
-    event = _cancel_events.get(
-        body.client_job_id
-    )
-
-    if event:
-        event.set()
-
-    return {
-        "ok": True
-    }
 
 
 # 检查 MCP URL 并尝试获取工具清单，返回连接结果与工具名，不经过聊天模型。

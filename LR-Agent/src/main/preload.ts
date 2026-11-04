@@ -703,6 +703,10 @@ const electronHandler = {
     },
     // ── Message operations ──
     messages: {
+      recall: (
+        request: import('../shared/conversationHistory').HistoryRecallRequest,
+      ): Promise<import('../shared/conversationHistory').HistoryRecallResult> =>
+        ipcRenderer.invoke('db:messages:recall', request),
       list: (
         sessionId: string,
         options: {

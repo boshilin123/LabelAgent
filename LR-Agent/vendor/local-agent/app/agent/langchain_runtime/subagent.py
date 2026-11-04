@@ -55,6 +55,8 @@ from typing import Any
 from langchain.tools import ToolRuntime
 from langchain_core.tools import StructuredTool
 
+from app.core.streaming import closing_stream
+
 from app.agent.assist.explore_readonly import (
     EXPLORE_READONLY_TOOL_NAME,
     ExploreReadonlyRunner,
@@ -202,15 +204,16 @@ async def _run_subagent_stream(
     summary = ""
     status = "error"
     try:
-        async for event in runner.stream(
+        async with closing_stream(runner.stream(
             query=query,
             focus_path=focus_path,
             parent_tool_id=parent_tool_id,
-        ):
-            if getattr(event, "type", None) == "subagent_done":
-                summary = getattr(event, "summary", "") or ""
-                status = getattr(event, "status", "") or "done"
-            emit(event)
+        )) as _events_stream:
+            async for event in _events_stream:
+                if getattr(event, "type", None) == "subagent_done":
+                    summary = getattr(event, "summary", "") or ""
+                    status = getattr(event, "status", "") or "done"
+                emit(event)
     except Exception as exc:  # noqa: BLE001 - 复刻旧路径的兜底文本
         summary = f"查阅失败：{exc}"
         status = "error"

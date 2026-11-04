@@ -9,6 +9,8 @@
 import uuid
 from collections.abc import AsyncIterator, Callable
 
+from app.core.streaming import closing_stream
+
 from app.agent.assist_vision import (
     can_bootstrap_vision,
     pick_vision_relative_path,
@@ -60,12 +62,13 @@ class VisionAutoLoader:
 
         if can_bootstrap_vision(self.client_context, rel):
             tool_id = f"lr-vision-fallback-{uuid.uuid4().hex[:10]}"
-            async for event in stream_vision_tool_execution(
+            async with closing_stream(stream_vision_tool_execution(
                 tool_id=tool_id,
                 relative_path=rel,
                 vision_fn=self.vision_fn,  # type: ignore[arg-type]
                 provider_is_vision=self.provider_is_vision,
                 settings=self.settings,
                 messages=messages,
-            ):
-                yield event
+            )) as _events_stream:
+                async for event in _events_stream:
+                    yield event

@@ -8,6 +8,8 @@ from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.tools import StructuredTool
 from langchain_openai import ChatOpenAI
 
+from app.core.streaming import closing_stream
+
 from app.agent.assist.proposal_streamer import ProposalStreamInterceptor
 from app.agent.assist.task_phase import TaskPhase, TaskPhaseContext
 from app.agent.assist.tool_loop import TOOL_CALLS_ALREADY_COMPLETED, ToolLoopRunner
@@ -115,25 +117,26 @@ async def stream_assist(
         pending_text: list[str] = []
 
         # 单次 astream：同时收集 text/reasoning + 拦截 proposal + 累加 gathered
-        async for chunk in llm_with_tools.astream(messages):
-            if await is_cancelled():
-                return
+        async with closing_stream(llm_with_tools.astream(messages)) as _events_stream:
+            async for chunk in _events_stream:
+                if await is_cancelled():
+                    return
 
-            for event in events_from_chunk(chunk, emit_tool_chunks=False):
-                if event.type == "text_delta" and event.content:
-                    pending_text.append(event.content)
-                    yield event
-                elif event.type == "reasoning_delta" and event.content:
-                    yield event
+                for event in events_from_chunk(chunk, emit_tool_chunks=False):
+                    if event.type == "text_delta" and event.content:
+                        pending_text.append(event.content)
+                        yield event
+                    elif event.type == "reasoning_delta" and event.content:
+                        yield event
 
-            # 提案流式拦截
-            for proposal_event in interceptor.on_chunk(chunk):
-                yield proposal_event
+                # 提案流式拦截
+                for proposal_event in interceptor.on_chunk(chunk):
+                    yield proposal_event
 
-            if gathered is None:
-                gathered = chunk
-            else:
-                gathered = gathered + chunk
+                if gathered is None:
+                    gathered = chunk
+                else:
+                    gathered = gathered + chunk
 
         if gathered is None:
             break
@@ -142,20 +145,21 @@ async def stream_assist(
 
         # 执行本轮 tool calls（由 ToolLoopRunner 统一解析 + 执行 + pending）
         had_tool_call = False
-        async for event in loop.execute_round(
+        async with closing_stream(loop.execute_round(
             gathered=gathered,
             full_text=full_text,
             messages=messages,
             interceptor=interceptor,
-        ):
-            if event.type == TOOL_CALLS_ALREADY_COMPLETED:
+        )) as _events_stream:
+            async for event in _events_stream:
+                if event.type == TOOL_CALLS_ALREADY_COMPLETED:
+                    had_tool_call = True
+                    continue
                 had_tool_call = True
-                continue
-            had_tool_call = True
-            if event.type == "tool_pending":
+                if event.type == "tool_pending":
+                    yield event
+                    return
                 yield event
-                return
-            yield event
 
         if had_tool_call:
             continue
@@ -168,8 +172,9 @@ async def stream_assist(
             and vision.should_load(is_resume)
             and not loop.vision_bootstrapped
         ):
-            async for event in vision.try_fallback(messages):
-                yield event
+            async with closing_stream(vision.try_fallback(messages)) as _events_stream:
+                async for event in _events_stream:
+                    yield event
             loop.vision_bootstrapped = True
             continue
 
@@ -187,9 +192,10 @@ async def stream_assist(
                 )
             )
         )
-        async for chunk in llm.astream(messages):
-            if await is_cancelled():
-                return
-            for event in events_from_chunk(chunk, emit_tool_chunks=False):
-                if event.type in ("text_delta", "reasoning_delta") and event.content:
-                    yield event
+        async with closing_stream(llm.astream(messages)) as _events_stream:
+            async for chunk in _events_stream:
+                if await is_cancelled():
+                    return
+                for event in events_from_chunk(chunk, emit_tool_chunks=False):
+                    if event.type in ("text_delta", "reasoning_delta") and event.content:
+                        yield event

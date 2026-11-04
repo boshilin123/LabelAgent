@@ -12,9 +12,12 @@ import inspect
 import json
 from collections.abc import AsyncIterator
 
+import anyio
 from langchain_core.messages import AIMessage, ToolMessage
 from langchain_core.tools import StructuredTool
 from langchain_openai import ChatOpenAI
+
+from app.core.streaming import closing_stream
 
 from app.agent.assist.explore_readonly import (
     EXPLORE_READONLY_TOOL_NAME,
@@ -160,8 +163,9 @@ async def _merge_async_iterators(
     if not streams:
         return
     if len(streams) == 1:
-        async for event in streams[0]:
-            yield event
+        async with closing_stream(streams[0]) as _events_stream:
+            async for event in _events_stream:
+                yield event
         return
 
     queue: asyncio.Queue[StreamEventPayload | None] = asyncio.Queue()
@@ -169,10 +173,11 @@ async def _merge_async_iterators(
     # 读取一条子流并写入共享队列，结束时用 None 通知该子流已结束。
     async def _pump(gen: AsyncIterator[StreamEventPayload]) -> None:
         try:
-            async for event in gen:
-                await queue.put(event)
+            async with closing_stream(gen) as _events_stream:
+                async for event in _events_stream:
+                    await queue.put(event)
         finally:
-            await queue.put(None)
+            queue.put_nowait(None)
 
     tasks = [asyncio.create_task(_pump(stream)) for stream in streams]
     remaining = len(tasks)
@@ -184,10 +189,11 @@ async def _merge_async_iterators(
             else:
                 yield item
     finally:
-        for task in tasks:
-            if not task.done():
-                task.cancel()
-        await asyncio.gather(*tasks, return_exceptions=True)
+        with anyio.CancelScope(shield=True):
+            for task in tasks:
+                if not task.done():
+                    task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
 
 
 # 发出父工具开始事件，再转发内部子代理进度；父结果与消息追加由调用方处理。
@@ -210,12 +216,13 @@ async def _stream_explore_events(
     focus_path = str(focus_raw).strip() if focus_raw else None
     stream_fn = getattr(runner, "stream", None)
     if _is_explore_runner(runner) and callable(stream_fn):
-        async for event in stream_fn(
+        async with closing_stream(stream_fn(
             query=query,
             focus_path=focus_path,
             parent_tool_id=tool_id,
-        ):
-            yield event
+        )) as _events_stream:
+            async for event in _events_stream:
+                yield event
         return
     yield StreamEventPayload(
         type="subagent_done",
@@ -252,15 +259,16 @@ async def _stream_tool_execution(
     if name == EXPLORE_READONLY_TOOL_NAME:
         summary = ""
         status = "error"
-        async for event in _stream_explore_events(
+        async with closing_stream(_stream_explore_events(
             tool_id=tool_id,
             args=args,
             fn_map=fn_map,
-        ):
-            yield event
-            if event.type == "subagent_done":
-                summary = event.summary or ""
-                status = event.status or "done"
+        )) as _events_stream:
+            async for event in _events_stream:
+                yield event
+                if event.type == "subagent_done":
+                    summary = event.summary or ""
+                    status = event.status or "done"
         display_result = format_tool_result_for_display(
             _explore_result_text(summary, status)
         )
@@ -451,16 +459,17 @@ class ToolLoopRunner:
         """流式产出 text_delta / reasoning_delta + 拦截 proposal chunks。"""
         llm_with_tools = self.llm.bind_tools(self.tools)
 
-        async for chunk in llm_with_tools.astream(messages):
-            if await self.is_cancelled():
-                return
+        async with closing_stream(llm_with_tools.astream(messages)) as _events_stream:
+            async for chunk in _events_stream:
+                if await self.is_cancelled():
+                    return
 
-            for event in events_from_chunk(chunk, emit_tool_chunks=False):
-                if event.type in ("text_delta", "reasoning_delta") and event.content:
-                    yield event
+                for event in events_from_chunk(chunk, emit_tool_chunks=False):
+                    if event.type in ("text_delta", "reasoning_delta") and event.content:
+                        yield event
 
-            for proposal_event in interceptor.on_chunk(chunk):
-                yield proposal_event
+                for proposal_event in interceptor.on_chunk(chunk):
+                    yield proposal_event
 
     # 旧流程的一轮决策：解析调用、检查阶段、合并去重，再执行后端工具或通知客户端接手。
     async def execute_round(
@@ -664,7 +673,7 @@ class ToolLoopRunner:
         for call in other_immediate:
             if await self.is_cancelled():
                 return
-            async for event in _stream_tool_execution(
+            async with closing_stream(_stream_tool_execution(
                 tool_id=call.tool_call_id,
                 name=call.name,
                 args=call.arguments,
@@ -675,8 +684,9 @@ class ToolLoopRunner:
                 omit_file_proposal_start_delta=streamed_paths,
                 streamed_paths_by_call_id=streamed_paths_by_call_id,
                 result_text=precomputed.get(call.tool_call_id),
-            ):
-                yield event
+            )) as _events_stream:
+                async for event in _events_stream:
+                    yield event
             if call.name == VISION_TOOL_NAME:
                 self.vision_bootstrapped = True
 
@@ -690,15 +700,16 @@ class ToolLoopRunner:
                 summary = ""
                 status = "error"
                 try:
-                    async for event in _stream_explore_events(
+                    async with closing_stream(_stream_explore_events(
                         tool_id=call.tool_call_id,
                         args=call.arguments,
                         fn_map=self.fn_map,
-                    ):
-                        if event.type == "subagent_done":
-                            summary = event.summary or ""
-                            status = event.status or "done"
-                        yield event
+                    )) as _events_stream:
+                        async for event in _events_stream:
+                            if event.type == "subagent_done":
+                                summary = event.summary or ""
+                                status = event.status or "done"
+                            yield event
                 except Exception as exc:
                     summary = f"查阅失败：{exc}"
                     status = "error"
@@ -710,10 +721,11 @@ class ToolLoopRunner:
                     )
                 finals[call.tool_call_id] = (summary, status)
 
-            async for event in _merge_async_iterators(
+            async with closing_stream(_merge_async_iterators(
                 [_tracked_explore(call) for call in explore_calls]
-            ):
-                yield event
+            )) as _events_stream:
+                async for event in _events_stream:
+                    yield event
 
             for call in explore_calls:
                 summary, status = finals.get(

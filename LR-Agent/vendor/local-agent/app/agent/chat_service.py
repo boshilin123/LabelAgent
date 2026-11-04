@@ -3,6 +3,8 @@ from collections.abc import AsyncIterator
 
 from langchain_openai import ChatOpenAI
 
+from app.core.streaming import closing_stream
+
 from app.agent.stream_adapter import events_from_chunk
 from app.schemas.agent import StreamEventPayload
 
@@ -13,6 +15,7 @@ async def stream_chat(
     lc_messages: list,
 ) -> AsyncIterator[StreamEventPayload]:
     yield StreamEventPayload(type="preparing", stage="streaming")
-    async for chunk in llm.astream(lc_messages):
-        for event in events_from_chunk(chunk, emit_tool_chunks=False):
-            yield event
+    async with closing_stream(llm.astream(lc_messages)) as _events_stream:
+        async for chunk in _events_stream:
+            for event in events_from_chunk(chunk, emit_tool_chunks=False):
+                yield event

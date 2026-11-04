@@ -4,6 +4,10 @@ import type {
   ChatMessage,
   MessageBlock,
 } from '../../shared/agentTypes';
+import type {
+  HistoryRecallRequest,
+  HistoryRecallResult,
+} from '../../shared/conversationHistory';
 
 const DEFAULT_SESSION_PAGE_SIZE = 50;
 const DEFAULT_MESSAGE_PAGE_SIZE = 50;
@@ -144,6 +148,9 @@ function getDb() {
             }>;
           };
           messages: {
+            recall: (
+              request: HistoryRecallRequest,
+            ) => Promise<HistoryRecallResult>;
             list: (sid: string, opts: unknown) => Promise<DbMessageListResult>;
             get: (id: string) => Promise<DbMessageRow | undefined>;
             create: (m: unknown) => Promise<DbMessageRow>;
@@ -165,6 +172,15 @@ function getDb() {
 }
 
 // ── Public API ─────────────────────────────────────────────────────
+
+/** 查询当前会话已保存原文；主进程再次校验用户和会话归属。 */
+export async function recallAgentHistory(
+  request: HistoryRecallRequest,
+): Promise<HistoryRecallResult> {
+  const recall = getDb().messages.recall;
+  if (!recall) throw new Error('历史回查通道尚未加载，请重启应用后重试。');
+  return recall(request);
+}
 
 export interface AgentSessionsPage {
   sessions: AgentSession[];

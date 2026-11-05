@@ -56,6 +56,41 @@ def _class_names_from_model(model) -> list[str]:
     return []
 
 
+def _box_iou(first: dict[str, float], second: dict[str, float]) -> float:
+    width = max(
+        0.0,
+        min(first["x"] + first["width"], second["x"] + second["width"])
+        - max(first["x"], second["x"]),
+    )
+    height = max(
+        0.0,
+        min(first["y"] + first["height"], second["y"] + second["height"])
+        - max(first["y"], second["y"]),
+    )
+    intersection = width * height
+    union = first["width"] * first["height"] + second["width"] * second["height"] - intersection
+    return intersection / union if union > 0 else 0.0
+
+
+def _suppress_overlapping_boxes(
+    items: list[dict[str, Any]], iou_threshold: float
+) -> list[dict[str, Any]]:
+    """同类别按置信度优先去重，保留剩余检测结果的原始顺序。"""
+    ranked = sorted(
+        range(len(items)), key=lambda index: items[index]["confidence"], reverse=True
+    )
+    kept: list[int] = []
+    for index in ranked:
+        candidate = items[index]
+        if all(
+            candidate["classId"] != items[other]["classId"]
+            or _box_iou(candidate["geometry"], items[other]["geometry"]) <= iou_threshold
+            for other in kept
+        ):
+            kept.append(index)
+    return [items[index] for index in sorted(kept)]
+
+
 def _run_yolo_predict(
     request: dict[str, Any],
     task: str | None = None,
@@ -141,6 +176,12 @@ def _run_yolo_predict(
                     },
                 }
             )
+
+    # 端到端模型跳过了常规 NMS；为矩形框补齐去重，使现有 IoU 配置生效。
+    # 旋转框需要旋转 IoU，不使用这套轴对齐矩形算法。
+    backend = getattr(getattr(model, "predictor", None), "model", None)
+    if task != "obb" and getattr(backend, "end2end", False):
+        items = _suppress_overlapping_boxes(items, iou)
 
     return {"items": items, "classNames": class_names}
 

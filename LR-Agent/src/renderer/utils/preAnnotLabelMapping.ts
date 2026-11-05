@@ -8,6 +8,9 @@ export function resolveLabelIdByClassName(
   labels: LabelDefinition[],
   model: PretrainedModelConfig,
 ): string | null {
+  // 单标签项目沿用自动标注主线的策略，直接使用唯一的项目标签 ID。
+  if (labels.length === 1) return labels[0].id;
+
   const mapped = model.labelMapping?.[className];
   if (mapped && labels.some((l) => l.id === mapped)) {
     return mapped;

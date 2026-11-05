@@ -27,7 +27,10 @@ import {
   pickDefaultPreAnnotModel,
   savePreAnnotModelId,
 } from '../../utils/preAnnotModelFilter';
-import { resolveLabelIdForPoseTemplate } from '../../utils/preAnnotLabelMapping';
+import {
+  resolveLabelIdByClassName,
+  resolveLabelIdForPoseTemplate,
+} from '../../utils/preAnnotLabelMapping';
 import './PreAnnotToolbarSection.css';
 
 export interface PreAnnotToolbarSectionProps {
@@ -163,7 +166,11 @@ export default function PreAnnotToolbarSection({
           if (!isBboxGeometry(item.geometry)) return [];
           return [
             {
-              labelId: null,
+              labelId: resolveLabelIdByClassName(
+                String(item.className ?? ''),
+                activeProject.labels,
+                selectedModel,
+              ),
               x: item.geometry.x,
               y: item.geometry.y,
               width: item.geometry.width,
@@ -183,7 +190,11 @@ export default function PreAnnotToolbarSection({
         if (!isObbGeometry(item.geometry)) return [];
         return [
           {
-            labelId: null,
+            labelId: resolveLabelIdByClassName(
+              String(item.className ?? ''),
+              activeProject.labels,
+              selectedModel,
+            ),
             cx: item.geometry.cx,
             cy: item.geometry.cy,
             width: item.geometry.width,

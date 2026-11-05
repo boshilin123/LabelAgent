@@ -230,10 +230,11 @@ export async function* runQualityReportGeneration(options: {
     return;
   }
 
+  // 快照最终按 JSON 保存；先去掉绘图回调，避免函数跨 Electron IPC 时克隆失败。
   await qualityApi.writeSnapshot(
     options.project.directoryPath,
     runId,
-    viewModel,
+    JSON.parse(JSON.stringify(viewModel)),
   );
   await qualityApi.writeFindings(
     options.project.directoryPath,

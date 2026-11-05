@@ -1,5 +1,7 @@
 """系统提示与帮助文案：标注入口不泄漏存储路径。"""
 
+import pytest
+
 from app.agent.context_snapshot import (
     build_assist_system_prompt,
     format_snapshot_for_prompt,
@@ -156,3 +158,83 @@ def test_editor_agent_prompt_allows_file_writes() -> None:
     assert "编辑器 Agent" in prompt
     assert "write_workspace_file" in prompt
     assert "禁止调用标注" in prompt
+
+
+@pytest.mark.parametrize(
+    ("selected_ids", "single_id", "expected_ids"),
+    [
+        (["ann-001", "ann-002"], "ann-old", '["ann-001", "ann-002"]'),
+        ([], "ann-001", '["ann-001"]'),
+    ],
+)
+def test_annotation_prompt_exposes_current_file_and_selection(
+    selected_ids: list[str], single_id: str, expected_ids: str
+) -> None:
+    prompt = _build_prompt(
+        ClientContextInput(
+            agent_mode="annotation",
+            work_mode="annotation",
+            active_relative_path="IMG_8167.JPG",
+            selected_annotation_id=single_id,
+            selected_annotation_ids=selected_ids,
+            annotation_project_snapshot=_bbox_snapshot(),
+        )
+    )
+    assert "当前文件: IMG_8167.JPG" in prompt
+    assert f"选中标注 ID: {expected_ids}" in prompt
+    assert "annotation_ids 填上述 ID" in prompt
+    assert "ann-old" not in prompt
+
+
+def test_annotation_prompt_marks_empty_selection_without_expanding_target() -> None:
+    prompt = _build_prompt(
+        ClientContextInput(
+            agent_mode="annotation",
+            active_relative_path="IMG_8167.JPG",
+            annotation_project_snapshot=_bbox_snapshot(),
+        )
+    )
+    assert "选中标注 ID: []" in prompt
+    assert "ID 为空则先请用户选择" in prompt
+    assert "不得将选中目标扩大为全部标注" in prompt
+
+
+def test_editor_prompt_does_not_expose_stale_annotation_selection() -> None:
+    prompt = _build_prompt(
+        ClientContextInput(
+            agent_mode="annotation",
+            work_mode="editor",
+            selected_annotation_id="ann-stale",
+            annotation_project_snapshot=_bbox_snapshot(),
+        )
+    )
+    assert "【本轮标注界面】" not in prompt
+    assert "ann-stale" not in prompt
+
+
+def test_annotation_ask_exposes_selection_without_mutation_call_guide() -> None:
+    prompt = _build_prompt(
+        ClientContextInput(
+            agent_mode="chat",
+            work_mode="annotation",
+            active_relative_path="IMG_8167.JPG",
+            selected_annotation_id="ann-001",
+            annotation_project_snapshot=_bbox_snapshot(),
+        )
+    )
+    assert "ann-001" in prompt
+    assert "annotation_ids 填上述 ID" not in prompt
+
+
+def test_selection_changes_preserve_stable_prompt_prefix() -> None:
+    ctx = ClientContextInput(
+        agent_mode="annotation",
+        active_relative_path="IMG_8167.JPG",
+        selected_annotation_id="ann-001",
+        annotation_project_snapshot=_bbox_snapshot(),
+        proposal_ledger="【未确认提案】待确认。",
+    )
+    first = _build_prompt(ctx)
+    second = _build_prompt(ctx.model_copy(update={"selected_annotation_id": "ann-002"}))
+    assert first.split("【本轮标注界面】")[0] == second.split("【本轮标注界面】")[0]
+    assert first.index("【未确认提案】") < first.index("【本轮标注界面】")

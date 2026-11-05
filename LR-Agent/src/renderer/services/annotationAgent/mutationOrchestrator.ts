@@ -175,6 +175,23 @@ export async function* runAnnotationMutationJob(options: {
     currentRelativePath,
   } = options;
 
+  // 空数组也需要补取选中项；准备与定位共用任务开始时的快照，避免中途切换目标。
+  const wsSnap = getAnnotationWorkspaceAgentSnapshot();
+  const selectedIds = [...(options.selectedAnnotationIds ?? [])];
+  if (
+    selectedIds.length === 0 &&
+    wsSnap.workspaceProjectId === project.projectId &&
+    wsSnap.workspaceRelativePath === currentRelativePath
+  ) {
+    selectedIds.push(
+      ...(wsSnap.selectedAnnotationIds.length
+        ? wsSnap.selectedAnnotationIds
+        : wsSnap.selectedAnnotationId
+          ? [wsSnap.selectedAnnotationId]
+          : []),
+    );
+  }
+
   yield progress('prepare', '解析标注变更意图', 'running');
 
   const digestParts: string[] = [];
@@ -201,12 +218,6 @@ export async function* runAnnotationMutationJob(options: {
 
   let prepareResult;
   try {
-    const wsSnap = getAnnotationWorkspaceAgentSnapshot();
-    const selectedIds =
-      options.selectedAnnotationIds ??
-      wsSnap.selectedAnnotationIds ??
-      (wsSnap.selectedAnnotationId ? [wsSnap.selectedAnnotationId] : []);
-
     prepareResult = await prepareMutationAnnotation(providerId, {
       userRequest,
       sessionId,
@@ -267,11 +278,6 @@ export async function* runAnnotationMutationJob(options: {
 
   const changes: AnnotationBatchChange[] = [];
   const resolveErrors: string[] = [];
-  const wsSnap = getAnnotationWorkspaceAgentSnapshot();
-  const selectedIds =
-    options.selectedAnnotationIds ??
-    wsSnap.selectedAnnotationIds ??
-    (wsSnap.selectedAnnotationId ? [wsSnap.selectedAnnotationId] : []);
 
   const candidateByPath = new Map(
     candidates.map((c) => [c.relativePath, c] as const),

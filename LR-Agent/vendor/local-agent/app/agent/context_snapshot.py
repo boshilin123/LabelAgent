@@ -3,6 +3,8 @@
 """Assist 模式系统提示词组装：运行时身份、任务指令与客户端上下文快照。"""
 from __future__ import annotations
 
+import json
+
 from app.schemas.agent import AnnotationProjectSnapshotInput, ClientContextInput, SkillCatalogEntryInput
 
 # 精简后的 prompt 常量 —— 规则由代码层承担，不靠模型理解
@@ -259,4 +261,28 @@ def build_assist_system_prompt(
     ledger = (client_context.proposal_ledger or "").strip() if client_context else ""
     if ledger:
         base = f"{base}\n\n{ledger}"
+    if (
+        client_context
+        and client_context.work_mode != "editor"
+        and client_context.annotation_project_snapshot is not None
+    ):
+        selected_ids = client_context.selected_annotation_ids or (
+            [client_context.selected_annotation_id]
+            if client_context.selected_annotation_id
+            else []
+        )
+        # 界面状态随轮次变化，放在提示末尾，保留前面稳定指令的缓存前缀。
+        selection_lines = [
+            "【本轮标注界面】",
+            f"当前文件: {client_context.active_relative_path or client_context.active_file_path or '（未打开文件）'}",
+            f"选中标注 ID: {json.dumps(selected_ids, ensure_ascii=False)}",
+            "“当前图片”“选中的框”以本轮界面状态为准，不从旧对话或工作区记忆推断。",
+        ]
+        if client_context.agent_mode == "annotation":
+            selection_lines.append(
+                "用户要求修改或删除选中标注时，调用 mutate_annotation，"
+                "paths 填当前文件相对路径，annotation_ids 填上述 ID；"
+                "ID 为空则先请用户选择，不得将选中目标扩大为全部标注。"
+            )
+        base = f"{base}\n\n" + "\n".join(selection_lines)
     return base

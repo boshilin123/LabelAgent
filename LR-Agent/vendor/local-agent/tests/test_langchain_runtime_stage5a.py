@@ -56,6 +56,10 @@ from app.agent.langchain_runtime.middleware import (  # noqa: E402
     build_business_middleware,
 )
 from app.agent.langchain_runtime.runtime import AgentContext  # noqa: E402
+from app.agent.langchain_runtime.sse_adapter import (  # noqa: E402
+    SseStreamConfig,
+    stream_agent_events,
+)
 from app.agent.langchain_runtime.subagent import (  # noqa: E402
     SUBAGENT_EVENT_TYPES,
     build_explore_readonly_agent_tool,
@@ -154,6 +158,7 @@ class ScriptedChat(BaseChatModel):
         return [AIMessageChunk(content="")]
 
     def _generate(self, messages, stop=None, run_manager=None, **kwargs) -> ChatResult:
+        self.counters.setdefault("inputs", []).append(list(messages))
         merged: AIMessageChunk | None = None
         for chunk in self._round():
             merged = chunk if merged is None else merged + chunk
@@ -726,6 +731,19 @@ def multimodal_messages(messages: list[Any]) -> list[Any]:
     return out
 
 
+def assert_tool_responses_are_contiguous(messages: list[Any]) -> None:
+    """Validate the provider contract, including ordering before image messages."""
+    for index, message in enumerate(messages):
+        if not isinstance(message, AIMessage) or not message.tool_calls:
+            continue
+        expected = {call["id"] for call in message.tool_calls}
+        responses = messages[index + 1 : index + 1 + len(message.tool_calls)]
+        assert all(isinstance(response, ToolMessage) for response in responses), [
+            type(response).__name__ for response in responses
+        ]
+        assert {response.tool_call_id for response in responses} == expected
+
+
 def build_vision_agent(
     *,
     middleware: list[Any],
@@ -1237,6 +1255,128 @@ async def test_active_vision_tool_call_appends_multimodal_message_after_tool_res
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "call_names",
+    [
+        (VISION_TOOL_NAME, "noop"),
+        ("noop", VISION_TOOL_NAME),
+        (VISION_TOOL_NAME, VISION_TOOL_NAME),
+    ],
+    ids=["image-first", "image-last", "two-images"],
+)
+@pytest.mark.parametrize(
+    "use_business_stack", [False, True], ids=["vision-only", "business-stack"]
+)
+@pytest.mark.parametrize("execution", ["async-stream", "sync-invoke", "sse"])
+async def test_vision_attachments_follow_all_tool_results(
+    tmp_path, call_names, use_business_stack, execution
+):
+    _, rel = make_workspace(tmp_path)
+    executed: list[str] = []
+    vision = VisionToolResultMiddleware(
+        provider_is_vision=True, settings=SimpleSettings()
+    )
+    middleware = (
+        build_business_middleware(max_tool_rounds=3, extra=[vision])
+        if use_business_stack
+        else [vision]
+    )
+    chunk = AIMessageChunk(
+        content="",
+        tool_call_chunks=[
+            {
+                "name": name,
+                "args": json.dumps(
+                    {"relative_path": rel} if name == VISION_TOOL_NAME else {}
+                ),
+                "id": f"parallel-{index}",
+                "index": index,
+                "type": "tool_call_chunk",
+            }
+            for index, name in enumerate(call_names)
+        ],
+    )
+    agent, model = build_vision_agent(
+        middleware=middleware,
+        tools=[vision_read_tool(tmp_path, rel, executed), noop_tool()],
+        rounds=[[chunk], [AIMessageChunk(content="done")]],
+    )
+
+    if execution == "sync-invoke":
+        await asyncio.to_thread(
+            agent.invoke,
+            {"messages": [AIMessage(content="go")]},
+            context=AgentContext(),
+        )
+    elif execution == "sse":
+        frames = [
+            frame.to_sse_dict()
+            async for frame in stream_agent_events(
+                agent,
+                messages=[AIMessage(content="go")],
+                config=SseStreamConfig(context=AgentContext()),
+            )
+        ]
+        expected_ids = [f"parallel-{index}" for index in range(len(call_names))]
+        for event_type in ("tool_start", "tool_result"):
+            assert [
+                frame["toolCallId"] for frame in frames if frame["type"] == event_type
+            ] == expected_ids
+        assert "".join(
+            frame["content"] for frame in frames if frame["type"] == "text_delta"
+        ) == "done"
+    else:
+        await drive(agent)
+
+    second_input = model.counters["inputs"][1]
+    assert_tool_responses_are_contiguous(second_input)
+    image_count = call_names.count(VISION_TOOL_NAME)
+    assert len(image_blocks(second_input)) == image_count
+    assert executed == [rel] * image_count
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("run_sync", [False, True], ids=["async-stream", "sync-invoke"])
+async def test_vision_pending_images_are_not_replayed_in_later_rounds(
+    tmp_path, run_sync
+):
+    _, rel = make_workspace(tmp_path)
+    executed: list[str] = []
+    agent, model = build_vision_agent(
+        middleware=build_business_middleware(
+            max_tool_rounds=3,
+            extra=[
+                VisionToolResultMiddleware(
+                    provider_is_vision=True, settings=SimpleSettings()
+                )
+            ],
+        ),
+        tools=[vision_read_tool(tmp_path, rel, executed)],
+        rounds=[
+            [tc_chunk(VISION_TOOL_NAME, {"relative_path": rel}, "vision-round-1")],
+            [tc_chunk(VISION_TOOL_NAME, {"relative_path": rel}, "vision-round-2")],
+            [AIMessageChunk(content="done")],
+        ],
+    )
+
+    if run_sync:
+        await asyncio.to_thread(
+            agent.invoke,
+            {"messages": [AIMessage(content="go")]},
+            context=AgentContext(),
+        )
+    else:
+        await drive(agent)
+
+    assert executed == [rel, rel]
+    assert model.counters["calls"] == 3
+    inputs = model.counters["inputs"]
+    assert [len(image_blocks(messages)) for messages in inputs] == [0, 1, 2]
+    for messages in inputs:
+        assert_tool_responses_are_contiguous(messages)
+
+
+@pytest.mark.asyncio
 async def test_active_vision_tool_call_skips_attachment_when_provider_not_vision(
     tmp_path,
 ):
@@ -1302,8 +1442,8 @@ async def test_active_non_vision_tool_does_not_get_an_image_attached(tmp_path):
 
 
 def test_vision_tool_result_middleware_sync_wrap_tool_call_also_attaches_image(tmp_path):
-    """同步版 ``wrap_tool_call``（``invoke`` / ``stream``）同样返回 ``Command`` 带图。"""
-    from langgraph.types import Command
+    """同步工具结果先入消息链，暂存的附图在模型调用前取出且只追加一次。"""
+    from langgraph.types import Command, Overwrite
 
     ctx, rel = make_workspace(tmp_path)
     middleware = VisionToolResultMiddleware(
@@ -1327,11 +1467,20 @@ def test_vision_tool_result_middleware_sync_wrap_tool_call_also_attaches_image(t
     result = middleware.wrap_tool_call(FakeRequest(), handler)
     assert isinstance(result, Command)
     messages = result.update["messages"]
+    assert len(messages) == 1
     assert isinstance(messages[0], ToolMessage)
-    assert multimodal_messages(messages) == [messages[1]]
-    assert messages[1].content[1]["image_url"]["url"].startswith(
+    pending = result.update["vision_pending_images"]
+    update = middleware.before_model(
+        {"messages": messages, "vision_pending_images": pending}, None
+    )
+    assert update is not None
+    assert multimodal_messages(update["messages"]) == pending
+    assert pending[0].content[1]["image_url"]["url"].startswith(
         "data:image/jpeg;base64,"
     )
+    assert isinstance(update["vision_pending_images"], Overwrite)
+    assert update["vision_pending_images"].value == []
+    assert middleware.before_model({"vision_pending_images": []}, None) is None
 
 
 @pytest.mark.asyncio

@@ -8,9 +8,9 @@
   自动加载附图」，机制由探针 2 实测确定（``experiments/probe_stage5_after_model_vision.py``
   + ``experiments/PROBE-STAGE5-FINDINGS.md``）；附图尾条由阶段 5b 探针补上
   （``experiments/probe_stage5b_multimodal.py``）。
-- :class:`VisionToolResultMiddleware`（``wrap_tool_call``）——旧「模型主动调用
-  ``read_image_for_vision`` → 工具结果之后追加附图」（``tool_loop.py:339-347``），
-  阶段 5b 新增。
+- :class:`VisionToolResultMiddleware`（``wrap_tool_call`` + ``before_model``）——
+  模型主动调用 ``read_image_for_vision`` 时先暂存附图，待本轮所有工具结果收齐后
+  再追加图片，避免打断模型要求连续排列的工具回复。
 
 **旧语义（逐条对照）**
 
@@ -94,11 +94,12 @@
 **兄弟路径（本文件第二件 middleware）**：旧的
 ``tool_loop.py:339-347``「模型**主动**调用 ``read_image_for_vision`` → 工具结果之后
 追加多模态 ``HumanMessage``」由 :class:`VisionToolResultMiddleware` 承担，
-落点 ``wrap_tool_call``（返回 ``Command``）。它**不能**用 ``after_model`` 表达：
+先在 ``wrap_tool_call`` 中用 ``Command`` 暂存附图，再由下一轮 ``before_model``
+统一追加。它**不能**用 ``after_model`` 表达：
 ``after_model`` 在 ``tools`` 节点**之前**跑（``factory.py:1789`` 的
-model → after_model 边），此时真实工具还没执行、拿不到结果。探针实测两条可用落点
-（``wrap_tool_call`` / 下一轮 ``wrap_model_call``）均成立，本文件取前者以保住
-「附图紧跟工具结果」的旧顺序。
+model → after_model 边），此时真实工具还没执行、拿不到结果。单个工具完成时
+直接追加图片也不安全：同轮还有其他工具时，``HumanMessage`` 会插进应当连续的
+``ToolMessage`` 之间。附图必须等整个工具轮完成后再进入消息链。
 
 **已知预算交互（报告，不修）**：兜底那次模型调用被
 ``ModelCallLimitMiddleware`` / ``BudgetWrapUpMiddleware`` 照常计数（探针 Q7）：
@@ -120,11 +121,12 @@ from __future__ import annotations
 import asyncio
 import uuid
 from collections.abc import Callable
-from typing import Any
+from operator import add
+from typing import Annotated, Any
 
 from langchain.agents.middleware import AgentMiddleware, AgentState
 from langchain_core.messages import AIMessage, AnyMessage, HumanMessage, ToolMessage
-from langgraph.types import Command
+from langgraph.types import Command, Overwrite
 from typing_extensions import NotRequired
 
 from app.core.streaming import closing_stream
@@ -150,6 +152,7 @@ __all__ = [
     "VisionFallbackMiddleware",
     "VisionFallbackState",
     "VisionToolResultMiddleware",
+    "VisionToolResultState",
     "vision_event_payload",
 ]
 
@@ -175,6 +178,12 @@ class VisionFallbackState(AgentState):
 
     vision_rounds: NotRequired[int]
     vision_attempted: NotRequired[bool]
+
+
+class VisionToolResultState(AgentState):
+    """本次运行待附加的图片；并行工具通过 reducer 合并，发送前统一清空。"""
+
+    vision_pending_images: NotRequired[Annotated[list[HumanMessage], add]]
 
 
 # 把视觉处理的项目事件转换成 custom 流字典，忽略没有值的字段。
@@ -434,44 +443,18 @@ class VisionFallbackMiddleware(AgentMiddleware):
 
 # 拦截已完成的读图工具结果，把本地图片转成模型能接收的多模态消息。
 class VisionToolResultMiddleware(AgentMiddleware):
-    """复刻旧「模型**主动**调用 ``read_image_for_vision`` → 工具结果之后追加附图」。
+    """读图后暂存附图，在下一次模型调用前追加到所有工具结果之后。
 
-    旧实现（``app/agent/assist/tool_loop.py:339-347``，同一段也在
-    ``assist_vision.py:96-104`` 的兜底分支里）：
+    工具包装只把 ``ToolMessage`` 写入消息链，并把图片交给运行状态中的队列。
+    并行工具各自追加到队列；``before_model`` 在整个工具轮完成后取出图片并清空
+    队列，保证 ``AI(tool_calls) → ToolMessage × N → HumanMessage(图)`` 的顺序。
 
-    .. code-block:: python
-
-        if vision_path and provider_is_vision:
-            messages.append(await build_multimodal_user_message(
-                "【附图】请根据上图回答用户关于该图片的问题。",
-                image_absolute_path=vision_path,
-                max_edge=settings.agent_chat_vision_max_edge,
-                jpeg_quality=settings.agent_chat_vision_jpeg_quality,
-            ))
-
-    这里放 ``wrap_tool_call``（``langchain/agents/middleware/types.py:677`` 允许返回
-    ``Command``，见 ``factory.py:213-258`` 的 ``_build_commands``）：工具结果由框架的
-    ``tools`` 节点产出，本条把 ``ToolMessage`` 与附图 ``HumanMessage`` **按旧顺序**
-    一起作为 state 更新落盘（``add_messages`` reducer 追加），于是**下一次**模型调用
-    就能看到图。
-
-    阶段 5b 探针实测（``experiments/probe_stage5b_multimodal.py`` 的 ``toolD`` 组）：
-    ``model_calls=2``、``tools`` 节点照常出现、真工具恰好执行 1 次、
-    call#2 输入 = ``[..., AIMessage(真调用), ToolMessage(结果), HumanMessage(图)]``
-    且 image_url 块数 = 1。同探针的 ``toolE`` 组（改用 ``wrap_model_call`` 在下一轮
-    追加）也能达成同样效果，但消息不进 state；本类选 ``wrap_tool_call`` 以保持
-    「附图紧跟在工具结果之后」这一旧顺序。
-
-    **触发条件与旧路径逐条同源**：``provider_is_vision`` 为真、工具名是
-    ``read_image_for_vision``、且结果里能解析出 ``__vision_image_path__``
-    （``extract_vision_path_from_tool_result``，非视觉工具恒返回 ``None``）。
-    图片编码复用 :func:`~app.agent.chat_message_builder.build_multimodal_user_message`
-    ——本类**不重写**任何 base64 / JPEG 逻辑。
-
-    **本类不产出 ``tool_start`` / ``tool_result`` 帧**：工具是**真实调用**，
-    帧由工具的 ``ToolRuntime.stream_writer`` 路径负责（旧路径同：真实工具轮不发
-    兜底帧）。
+    仅在 provider 支持视觉、工具名为 ``read_image_for_vision``、且结果含有效
+    图片路径时处理；图片编码仍复用 ``build_multimodal_user_message``。
+    本类不产出工具事件帧，真实工具的事件继续由流适配器处理。
     """
+
+    state_schema = VisionToolResultState
 
     # 保存视觉开关和图片压缩配置，供工具结果转换时使用。
     def __init__(self, *, provider_is_vision: bool, settings: Any) -> None:
@@ -496,17 +479,29 @@ class VisionToolResultMiddleware(AgentMiddleware):
         name = str(getattr(request, "tool_call", {}).get("name") or "")
         return extract_vision_path_from_tool_result(name, str(result.content)) or ""
 
-    # 同步工具包装入口：执行工具后按需补上图片消息。
+    # 整轮工具完成后再附图，防止图片打断同一条 AI 消息要求的连续工具回复。
+    def before_model(
+        self, state: VisionToolResultState, runtime: Any
+    ) -> dict[str, Any] | None:
+        pending = state.get("vision_pending_images")
+        if not pending:
+            return None
+        return {
+            "messages": list(pending),
+            "vision_pending_images": Overwrite([]),
+        }
+
+    # 同步工具包装入口：执行工具后按需暂存图片消息。
     def wrap_tool_call(self, request: Any, handler: Any) -> Any:
         """同步版（``invoke`` / 同步图执行走这条）。"""
         return _drive_sync(self._awrap(request, handler, sync_handler=handler))
 
-    # 异步工具包装入口：等待工具完成，再补上对应图片消息。
+    # 异步工具包装入口：等待工具完成，再暂存对应图片消息。
     async def awrap_tool_call(self, request: Any, handler: Any) -> Any:
         """异步版（``astream`` 走这条）。"""
         return await self._awrap(request, handler, sync_handler=None)
 
-    # 共用的异步结果处理逻辑，保留工具返回值并在需要时追加多模态内容。
+    # 工具结果立即入消息链；图片留到下一次模型调用前统一追加。
     async def _awrap(self, request: Any, handler: Any, *, sync_handler: Any) -> Any:
         if sync_handler is None:
             result = await handler(request)
@@ -516,4 +511,6 @@ class VisionToolResultMiddleware(AgentMiddleware):
         if not vision_path:
             return result
         human = await self._image_message(vision_path)
-        return Command(update={"messages": [result, human]})
+        return Command(
+            update={"messages": [result], "vision_pending_images": [human]}
+        )
